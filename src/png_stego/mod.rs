@@ -6,9 +6,7 @@ use thiserror::Error;
 use image::RgbImage;
 use util::i32_to_bytes;
 
-use crate::png_stego::util::{
-    bits_to_bytes, bytes_to_bits, bytes_to_i32, BoardBitVec,
-};
+use crate::png_stego::util::{bits_to_bytes, bytes_to_bits, bytes_to_i32, BoardBitVec};
 const COLORS_COUNT: u32 = 3;
 const BYTES_IN_I32: u32 = 4;
 const BITS_IN_BYTES: u32 = 8;
