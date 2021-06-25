@@ -1,14 +1,18 @@
 mod util;
 
-use std::{convert::TryInto, num::TryFromIntError};
+use std::{convert::TryInto, num::TryFromIntError, usize};
 use thiserror::Error;
 
 use image::RgbImage;
-use util::convert_length_to_bytes;
+use util::i32_to_bytes;
 
-use crate::png_stego::util::convert_bytes_to_bits;
+use crate::png_stego::util::{
+    bits_to_bytes, bytes_to_bits, bytes_to_i32, BoardBitVec,
+};
 const COLORS_COUNT: u32 = 3;
 const BYTES_IN_I32: u32 = 4;
+const BITS_IN_BYTES: u32 = 8;
+const LENGTH_BITS: u32 = BYTES_IN_I32 * BITS_IN_BYTES;
 
 #[derive(Debug, Error)]
 pub enum PngStegoError {
@@ -39,7 +43,7 @@ pub fn hide_bytes(mut img: RgbImage, bytes: Vec<u8>) -> PngStegoResult<RgbImage>
     }
 
     let combined_bytes = combine_length_and_bytes(bytes)?;
-    let bits = convert_bytes_to_bits(&combined_bytes);
+    let bits = bytes_to_bits(&combined_bytes);
 
     let pixels = img.pixels_mut();
 
@@ -54,13 +58,38 @@ pub fn hide_bytes(mut img: RgbImage, bytes: Vec<u8>) -> PngStegoResult<RgbImage>
     Ok(img)
 }
 
-pub fn read_hidden_bytes(encoded_img: RgbImage) -> Vec<u8> {
-    unimplemented!()
+pub fn read_hidden_bytes(encoded_img: RgbImage) -> PngStegoResult<Vec<u8>> {
+    let pixels: Vec<&u8> = encoded_img.pixels().map(|p| &p.0).flatten().collect();
+    let encoded_data_length = get_encoded_data_length(&pixels)?;
+    let encoded_data_bits = pixels
+        .iter()
+        .skip(LENGTH_BITS as usize)
+        .take(encoded_data_length as usize * BITS_IN_BYTES as usize)
+        .map(pixel_component_to_bit)
+        .collect();
+    let encoded_data_bytes = bits_to_bytes(encoded_data_bits);
+
+    Ok(encoded_data_bytes)
+}
+
+fn pixel_component_to_bit(component: &&u8) -> bool {
+    *component % 2 == 1
+}
+
+fn get_encoded_data_length(pixels: &[&u8]) -> PngStegoResult<i32> {
+    let length_bits: BoardBitVec = pixels
+        .iter()
+        .take(LENGTH_BITS as usize)
+        .map(pixel_component_to_bit)
+        .collect();
+    let length_bytes = bits_to_bytes(length_bits);
+
+    Ok(bytes_to_i32(length_bytes)?)
 }
 
 fn combine_length_and_bytes(bytes: Vec<u8>) -> PngStegoResult<Vec<u8>> {
     let data_length: i32 = bytes.len().try_into()?;
-    let length_bytes = convert_length_to_bytes(data_length)?;
+    let length_bytes = i32_to_bytes(data_length)?;
 
     let mut combined_bytes_buffer = Vec::with_capacity(bytes.len() + length_bytes.len());
 
@@ -114,5 +143,19 @@ mod tests {
         let updated_pixel = updated_image.get_pixel(0, 0);
 
         assert_ne!(pixel, updated_pixel)
+    }
+
+    #[test]
+    fn encoded_data_can_be_decoded() {
+        let mock_img = RgbImage::new(10, 10);
+        let bytes_to_hide = 0xDEADBEEFu32.to_le_bytes();
+
+        let img_with_data = hide_bytes(mock_img, bytes_to_hide.into()).unwrap();
+        let decoded_bytes = read_hidden_bytes(img_with_data).unwrap();
+
+        assert_eq!(
+            u32::from_le_bytes(decoded_bytes.try_into().unwrap()),
+            0xDEADBEEF
+        )
     }
 }
