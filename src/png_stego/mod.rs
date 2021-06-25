@@ -33,7 +33,7 @@ pub enum PngStegoError {
 pub type PngStegoResult<T> = Result<T, PngStegoError>;
 
 pub fn hide_bytes(mut img: RgbImage, bytes: Vec<u8>) -> PngStegoResult<RgbImage> {
-    let max_size = img.width() * img.height() * COLORS_COUNT as u32;
+    let max_size = img.width() * img.height() * COLORS_COUNT;
     let data_size = (bytes.len() as u32 + BYTES_IN_I32) * 8;
 
     if max_size < data_size {

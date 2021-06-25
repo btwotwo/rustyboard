@@ -7,7 +7,7 @@ pub type BoardBitVec = BitVec<Lsb0, u8>;
 pub type BoardBitSlice = BitSlice<Lsb0, u8>;
 pub type BoardBitBox = BitBox<Lsb0, u8>;
 
-pub fn i32_to_bytes(val: i32) -> std::io::Result<Vec<u8>> {
+pub fn i32_to_bytes(val: i32) -> Result<Vec<u8>> {
     let mut buffer = vec![];
 
     buffer.write_i32::<LittleEndian>(val)?;
