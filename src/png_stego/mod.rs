@@ -42,13 +42,16 @@ pub fn hide_bytes(mut img: RgbImage, bytes: Vec<u8>) -> PngStegoResult<RgbImage>
 
     let combined_bytes = combine_length_and_bytes(bytes)?;
     let bits = bytes_to_bits(&combined_bytes);
+    let bits_length = bits.len();
 
-    let pixels = img.pixels_mut();
+    let pixels = img
+        .pixels_mut()
+        .map(|p| &mut p.0)
+        .flatten()
+        .enumerate()
+        .take_while(|(i, _)| i < &bits_length);
 
-    for (i, pixel) in pixels.map(|p| &mut p.0).flatten().enumerate() {
-        if i >= bits.len() {
-            break;
-        }
+    for (i, pixel) in pixels {
         let even_pix = *pixel - (*pixel % 2);
         *pixel = even_pix + if bits[i] { 1 } else { 0 };
     }
