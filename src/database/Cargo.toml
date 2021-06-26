@@ -8,3 +8,8 @@ edition = "2018"
 
 [dependencies]
 serde_json = "1.0"
+thiserror = "1.0.25"
+
+[dev-dependencies]
+tempdir = "0.3.7"
+rusty-fork = "0.3.0"
