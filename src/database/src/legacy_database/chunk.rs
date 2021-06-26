@@ -14,6 +14,7 @@ const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
 
 pub type ChunkIndex = u64;
 
+#[derive(Debug)]
 pub struct Chunk {
     index: ChunkIndex,
     file: File,
@@ -127,7 +128,6 @@ impl Chunk {
     }
 }
 
-// TODO: Fix flakiness https://andrewra.dev/2019/03/01/testing-in-rust-temporary-files/
 #[cfg(test)]
 mod tests {
     use std::{env::set_current_dir, fs, path::Path};
@@ -208,8 +208,35 @@ mod tests {
                 in_temp_dir!({
                     let chunk = Chunk::try_new(Some(1)).unwrap();
                     let new_chunk = chunk.extend().unwrap();
-                    
+
                     assert_eq!(new_chunk.index, 1)
+                });
+            }
+        }
+    }
+
+    mod open {
+        use super::*;
+
+        rusty_fork_test! {
+            #[test]
+            fn try_open_should_return_error_if_max_size_exceeded() {
+                in_temp_dir!({
+                    File::create("0.db3").unwrap().write_all(b"buf").unwrap();
+                    let chunk = Chunk::try_open(0, Some(1));
+                    assert!(matches!(chunk.unwrap_err(), ChunkError::ChunkTooLarge))
+                });
+            }
+        }
+
+        rusty_fork_test! {
+            #[test]
+            fn try_open_should_open_chunk_if_size_not_exceeded() {
+                in_temp_dir!({
+                    File::create("0.db3").unwrap().write_all(b"buf").unwrap();
+
+                    let chunk = Chunk::try_open(0, Some(9999)).unwrap();
+                    assert_eq!(chunk.index, 0);
                 });
             }
         }
