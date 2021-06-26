@@ -8,9 +8,3 @@
     unused_import_braces,
     unused_qualifications
 )]
-#[allow(dead_code)]
-mod png_stego;
-
-fn main() {
-    println!("Hello, world!");
-}

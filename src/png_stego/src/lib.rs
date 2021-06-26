@@ -4,9 +4,8 @@ use std::{convert::TryInto, num::TryFromIntError, usize};
 use thiserror::Error;
 
 use image::RgbImage;
-use util::i32_to_bytes;
+use util::{BoardBitVec, bits_to_bytes, bytes_to_bits, bytes_to_i32, i32_to_bytes};
 
-use crate::png_stego::util::{bits_to_bytes, bytes_to_bits, bytes_to_i32, BoardBitVec};
 const COLORS_COUNT: u32 = 3;
 const BYTES_IN_I32: u32 = 4;
 const BITS_IN_BYTES: u32 = 8;
@@ -144,19 +143,5 @@ mod tests {
         let updated_pixel = updated_image.get_pixel(0, 0);
 
         assert_ne!(pixel, updated_pixel)
-    }
-
-    #[test]
-    fn encoded_data_can_be_decoded() {
-        let mock_img = RgbImage::new(10, 10);
-        let bytes_to_hide = 0xDEADBEEFu32.to_le_bytes();
-
-        let img_with_data = hide_bytes(mock_img, bytes_to_hide.into()).unwrap();
-        let decoded_bytes = read_hidden_bytes(img_with_data).unwrap();
-
-        assert_eq!(
-            u32::from_le_bytes(decoded_bytes.try_into().unwrap()),
-            0xDEADBEEF
-        )
     }
 }

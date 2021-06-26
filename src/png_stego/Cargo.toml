@@ -1,0 +1,12 @@
+[package]
+name = "png_stego"
+version = "0.1.0"
+authors = ["btwotwo <btwotwo@protonmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+image = "0.23.14"
+byteorder = "1.4.3"
+thiserror = "1.0.25"
+bitvec = "0.22.3"

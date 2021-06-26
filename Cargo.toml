@@ -4,10 +4,8 @@ version = "0.1.0"
 authors = ["btwotwo <btwotwo@protonmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-image = "0.23.14"
-byteorder = "1.4.3"
-thiserror = "1.0.25"
-bitvec = "0.22.3"
+[workspace]
+members = [
+    "src/png_stego",
+    "src/database"
+]
