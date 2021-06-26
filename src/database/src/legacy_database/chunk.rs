@@ -104,9 +104,12 @@ impl Chunk {
         Ok(chunk)
     }
 
-    pub fn try_append_message(&mut self, msg: String) -> ChunkResult<()> {
+    pub fn try_append_data<I>(&mut self, data: I) -> ChunkResult<()>
+    where
+        I: Into<Vec<u8>>,
+    {
         self.validate_chunk_size()?;
-        self.file.write_all(msg.as_bytes())?;
+        self.file.write_all(&data.into())?;
 
         Ok(())
     }
@@ -142,41 +145,76 @@ mod tests {
     use super::*;
     use rusty_fork::rusty_fork_test;
 
-    rusty_fork_test! {
-        #[test]
-        fn no_chunks_exist_should_create_zero_chunk() {
-            in_temp_dir!({
-                let chunk = Chunk::try_new(Some(1)).unwrap();
+    mod try_new {
+        use super::*;
+        rusty_fork_test! {
+            #[test]
+            fn no_chunks_exist_should_create_zero_chunk() {
+                in_temp_dir!({
+                    let chunk = Chunk::try_new(Some(1)).unwrap();
 
-                assert_eq!(chunk.index, 0);
-                assert!(exists_index(0))
-            });
+                    assert_eq!(chunk.index, 0);
+                    assert!(exists_index(0))
+                });
+            }
+        }
+
+        rusty_fork_test! {
+            #[test]
+            fn chunk_exists_and_exceeds_limit_should_increment_index_and_create_new_chunk() {
+                in_temp_dir!({
+                    File::create("0.db3").unwrap().write_all(b"buf").unwrap();
+                    let chunk = Chunk::try_new(Some(1)).unwrap();
+                    assert_eq!(chunk.index, 1);
+                    assert!(exists_index(1))
+                });
+            }
+        }
+
+        rusty_fork_test! {
+            #[test]
+            fn chunk_exists_not_exceeds_limit_should_open_without_creating_new() {
+                in_temp_dir!({
+                    File::create("0.db3").unwrap().write_all(b"buf").unwrap();
+                    let chunk = Chunk::try_new(Some(99999)).unwrap();
+                    assert_eq!(chunk.index, 0);
+                    assert!(exists_index(0))
+                });
+            }
+        }
+    }
+    mod append {
+        use super::*;
+        rusty_fork_test! {
+            #[test]
+            fn append_chunk_size_exceeded_returns_error() {
+                in_temp_dir!({
+                    let mut chunk = Chunk::try_new(Some(1)).unwrap();
+                    chunk.try_append_data("test data").unwrap(); //if we exceed the limit during the first write it's okay
+                    let err = chunk.try_append_data("other data").expect_err("Should exceed limit of one byte");
+
+                    assert!(matches!(err, ChunkError::ChunkTooLarge));
+                });
+            }
         }
     }
 
-    rusty_fork_test! {
-        #[test]
-        fn chunk_exists_and_exceeds_limit_should_increment_index_and_create_new_chunk() {
-            in_temp_dir!({
-                File::create("0.db3").unwrap().write_all(b"buf").unwrap();
-                let chunk = Chunk::try_new(Some(1)).unwrap();
-                assert_eq!(chunk.index, 1);
-                assert!(exists_index(1))
-            });
+    mod extend {
+        use super::*;
+
+        rusty_fork_test! {
+            #[test]
+            fn extend_should_create_new_file() {
+                in_temp_dir!({
+                    let chunk = Chunk::try_new(Some(1)).unwrap();
+                    let new_chunk = chunk.extend().unwrap();
+                    
+                    assert_eq!(new_chunk.index, 1)
+                });
+            }
         }
     }
 
-    rusty_fork_test! {
-        #[test]
-        fn chunk_exists_not_exceeds_limit_should_open_without_creating_new() {
-            in_temp_dir!({
-                File::create("0.db3").unwrap().write_all(b"buf").unwrap();
-                let chunk = Chunk::try_new(Some(99999)).unwrap();
-                assert_eq!(chunk.index, 0);
-                assert!(exists_index(0))
-            });
-        }
-    }
     fn exists_index(index: ChunkIndex) -> bool {
         return Path::new(&format!("{}.db3", index)).exists();
     }
