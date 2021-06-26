@@ -26,15 +26,15 @@ And that's not all!
 Just for fun. This is a learning project after all. The author of the original project wrote it on C#, the language which I'm familiar with. It's much more interesting to try something new, isn't it?
 
 
-# To-do list
+## To-do list
 Since it's a learning and rewriting project, there's still much to implement:
 
-## Core parts
+### Core parts
 - [x] PNG steganography tool
 - [ ] Posts database with legacy (old nanoboard project) database support
 - [ ] Handling of captcha, POW and posts signature
 - [ ] Nanoposts encoding and decoding
 
-## Utility parts
+### Utility parts
 - [ ] Server with endpoints to get nanoposts
 - [ ] Frontend
