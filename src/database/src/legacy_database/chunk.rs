@@ -9,6 +9,8 @@ pub const CHUNK_EXT: &str = "db3";
 pub const INDEX_FILENAME: &str = "index-3.json";
 pub const DIFF_FILENAME: &str = "diff-3.list";
 
+
+#[allow(clippy::identity_op)] // For better readability
 const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
 
 pub type ChunkIndex = u64;
@@ -89,7 +91,6 @@ impl Chunk {
                         index += 1;
                         continue;
                     }
-                    _ => return Err(e),
                 },
                 Ok(val) => return Ok(val),
             };
@@ -106,7 +107,7 @@ impl Chunk {
 
     pub fn try_append_message(&mut self, msg: String) -> ChunkResult<()> {
         self.validate_chunk_size()?;
-        self.file.write(msg.as_bytes())?;
+        self.file.write_all(msg.as_bytes())?;
 
         Ok(())
     }
