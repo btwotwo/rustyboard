@@ -1,15 +1,16 @@
-mod util;
+//! # png_stego
+//! `png_stego` provides methods which can be used to hide arbitrary data (in form of byte arrays) inside RGB images.
+//! Implemented on top of old nanoboard source code and http://blog.andersen.im/2014/11/hiding-your-bits-in-the-bytes/
+
+mod consts;
+mod converters;
 
 use std::{convert::TryInto, num::TryFromIntError, usize};
 use thiserror::Error;
 
+use consts::*;
+use converters::{bits_to_bytes, bytes_to_bits, bytes_to_i32, i32_to_bytes, BoardBitVec};
 use image::RgbImage;
-use util::{BoardBitVec, bits_to_bytes, bytes_to_bits, bytes_to_i32, i32_to_bytes};
-
-const COLORS_COUNT: u32 = 3;
-const BYTES_IN_I32: u32 = 4;
-const BITS_IN_BYTES: u32 = 8;
-const LENGTH_BITS: u32 = BYTES_IN_I32 * BITS_IN_BYTES;
 
 #[derive(Debug, Error)]
 pub enum PngStegoError {
@@ -30,6 +31,14 @@ pub enum PngStegoError {
 }
 
 pub type PngStegoResult<T> = Result<T, PngStegoError>;
+
+/// Allows you to hide byte data inside a provided image.
+/// **Warning!** According to the hiding algorithm, one pixel of the image can store 3 bits of data.
+
+/// If your data can't fit into image, a [`PngStegoError`] will be returned.
+/// # Arguments
+/// * `img` - An RGB image.
+/// * `bytes` - Byte data which you need to hide
 
 pub fn hide_bytes(mut img: RgbImage, bytes: Vec<u8>) -> PngStegoResult<RgbImage> {
     let max_size = img.width() * img.height() * COLORS_COUNT;
@@ -58,6 +67,12 @@ pub fn hide_bytes(mut img: RgbImage, bytes: Vec<u8>) -> PngStegoResult<RgbImage>
     Ok(img)
 }
 
+/// Allows you to read hidden bytes from image.
+///
+/// **Warning!** Since it's a steganography algorithm, there's no way to know if there's any data hidden beforehand.
+/// If there's no IO related errors, the method will return random data.
+/// # Arguments
+/// * `encoded_img` - An image with data.
 pub fn read_hidden_bytes(encoded_img: RgbImage) -> PngStegoResult<Vec<u8>> {
     let pixels: Vec<&u8> = encoded_img.pixels().map(|p| &p.0).flatten().collect();
     let encoded_data_length = get_encoded_data_length(&pixels)?;
