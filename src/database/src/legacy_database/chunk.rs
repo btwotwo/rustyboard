@@ -9,7 +9,6 @@ pub const CHUNK_EXT: &str = "db3";
 pub const INDEX_FILENAME: &str = "index-3.json";
 pub const DIFF_FILENAME: &str = "diff-3.list";
 
-
 #[allow(clippy::identity_op)] // For better readability
 const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
 
@@ -144,41 +143,39 @@ mod tests {
     use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
-    #[test]
-    fn no_chunks_exist_should_create_zero_chunk() {
-        in_temp_dir!({
-            let chunk = Chunk::try_new(Some(1)).unwrap();
+        #[test]
+        fn no_chunks_exist_should_create_zero_chunk() {
+            in_temp_dir!({
+                let chunk = Chunk::try_new(Some(1)).unwrap();
 
-            assert_eq!(chunk.index, 0);
-            assert!(exists_index(0))
-        });
-    }
-    }
-
-    rusty_fork_test! {
-    #[test]
-    fn chunk_exists_and_exceeds_limit_should_increment_index_and_create_new_chunk() {
-        in_temp_dir!({
-            File::create("0.db3").unwrap().write_all(b"buf").unwrap();
-            let chunk = Chunk::try_new(Some(1)).unwrap();
-            assert_eq!(chunk.index, 1);
-            assert!(exists_index(1))
-        });
-    }
+                assert_eq!(chunk.index, 0);
+                assert!(exists_index(0))
+            });
+        }
     }
 
     rusty_fork_test! {
-
-    #[test]
-    fn chunk_exists_not_exceeds_limit_should_open_without_creating_new() {
-        in_temp_dir!({
-            File::create("0.db3").unwrap().write_all(b"buf").unwrap();
-            let chunk = Chunk::try_new(Some(99999)).unwrap();
-            assert_eq!(chunk.index, 0);
-            assert!(exists_index(0))
-        });
+        #[test]
+        fn chunk_exists_and_exceeds_limit_should_increment_index_and_create_new_chunk() {
+            in_temp_dir!({
+                File::create("0.db3").unwrap().write_all(b"buf").unwrap();
+                let chunk = Chunk::try_new(Some(1)).unwrap();
+                assert_eq!(chunk.index, 1);
+                assert!(exists_index(1))
+            });
+        }
     }
 
+    rusty_fork_test! {
+        #[test]
+        fn chunk_exists_not_exceeds_limit_should_open_without_creating_new() {
+            in_temp_dir!({
+                File::create("0.db3").unwrap().write_all(b"buf").unwrap();
+                let chunk = Chunk::try_new(Some(99999)).unwrap();
+                assert_eq!(chunk.index, 0);
+                assert!(exists_index(0))
+            });
+        }
     }
     fn exists_index(index: ChunkIndex) -> bool {
         return Path::new(&format!("{}.db3", index)).exists();
