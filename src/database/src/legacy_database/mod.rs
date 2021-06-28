@@ -1,2 +1,3 @@
-mod chunk;
-mod database;
+pub mod chunk;
+pub mod database;
+pub mod index;

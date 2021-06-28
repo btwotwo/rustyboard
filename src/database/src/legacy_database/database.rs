@@ -1,18 +1,31 @@
+use super::chunk::{Chunk, ChunkError};
 use crate::{post::Post, post_database::Database};
+use thiserror::Error;
 
-use super::chunk::Chunk;
-
-struct NanoboardDatabase {
-    current_chunk: Chunk,
-}
-
-impl NanoboardDatabase {
-    pub fn new() -> Self {
-        todo!()
+#[derive(Debug, Error)]
+pub enum LegacyDatabaseError {
+    #[error("Chunk error")]
+    ChunkError {
+        #[from]
+        source: ChunkError
     }
 }
 
-impl Database for NanoboardDatabase {
+pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
+
+struct LegacyDatabase {
+    current_chunk: Chunk,
+}
+
+impl LegacyDatabase {
+    pub fn new() -> LegacyDatabaseResult<Self> {
+        Ok(LegacyDatabase {
+            current_chunk: Chunk::try_new(None)?
+        })
+    }
+}
+
+impl Database for LegacyDatabase {
     fn put_post(&mut self, post: Post, allow_reput: bool) {
         todo!()
     }

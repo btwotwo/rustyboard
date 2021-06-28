@@ -1,3 +1,3 @@
-mod legacy_database;
-mod post;
-mod post_database;
+pub mod legacy_database;
+pub mod post;
+pub mod post_database;

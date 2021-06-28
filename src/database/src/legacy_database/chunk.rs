@@ -2,12 +2,9 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::ErrorKind::NotFound;
 use std::io::Write;
-
 use thiserror::Error;
 
 pub const CHUNK_EXT: &str = "db3";
-pub const INDEX_FILENAME: &str = "index-3.json";
-pub const DIFF_FILENAME: &str = "diff-3.list";
 
 #[allow(clippy::identity_op)] // For better readability
 const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
