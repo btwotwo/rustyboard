@@ -7,8 +7,8 @@ pub enum LegacyDatabaseError {
     #[error("Chunk error")]
     ChunkError {
         #[from]
-        source: ChunkError
-    }
+        source: ChunkError,
+    },
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -20,7 +20,7 @@ struct LegacyDatabase {
 impl LegacyDatabase {
     pub fn new() -> LegacyDatabaseResult<Self> {
         Ok(LegacyDatabase {
-            current_chunk: Chunk::try_new(None)?
+            current_chunk: Chunk::try_new(None)?,
         })
     }
 }
