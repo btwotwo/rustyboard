@@ -19,11 +19,22 @@ impl Reference {
 
         let mut refs  = DbRefHashMap::new();
         let mut reply_refs  = RepliesHashMap::new();
-        let hashes = HashSet::new();
+        let mut hashes = HashSet::new();
         
         for ser_post in index_collection.indexes {
             let (hash, data) = ser_post.split();
-            let hash_rc = Rc::new(hash);
+            let hash_rc = Rc::new(hash.hash);
+            let parent_rc = Rc::new(hash.parent);
+            if !hashes.contains(&hash_rc) {
+                hashes.insert(hash_rc.clone());
+            }
+
+            if !hashes.contains(&parent_rc) {
+                hashes.insert(parent_rc.clone());
+            }
+
+            let hash_rc = hashes.get(&hash_rc).unwrap();
+            let parent_rc = hashes.get(&parent_rc).unwrap();
 
             refs.insert(Rc::clone(&hash_rc), data);
 
