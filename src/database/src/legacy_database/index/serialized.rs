@@ -36,18 +36,16 @@ pub struct IndexCollection {
     pub indexes: Vec<DbPostRefSerialized>,
 }
 
-pub struct Hashes {
+pub struct RawHashes {
     pub parent: DbPostRefHash,
-    pub hash: DbPostRefHash
+    pub hash: DbPostRefHash,
 }
 
 impl DbPostRefSerialized {
-    pub fn split(self) -> (Hashes, DbPostRef) {
+    pub fn split(self) -> (RawHashes, DbPostRef) {
         let hash = self.hash;
         let parent = self.reply_to;
-        let hashes = Hashes {
-            parent, hash
-        };
+        let hashes = RawHashes { parent, hash };
 
         let db_post_ref = DbPostRef {
             chunk_name: self.chunk_name,
