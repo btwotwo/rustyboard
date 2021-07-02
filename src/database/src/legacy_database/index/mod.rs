@@ -1,8 +1,17 @@
 mod db_post_ref;
 mod serialized;
-use std::{collections::{HashMap, HashSet}, fs::File, hash::Hash, io::BufReader, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    hash::Hash,
+    io::BufReader,
+    rc::Rc,
+};
 
-use self::{db_post_ref::{DbPostRefHash, DbRefHashMap, RepliesHashMap}, serialized::IndexCollection};
+use self::{
+    db_post_ref::{DbPostRefHash, DbRefHashMap, RepliesHashMap},
+    serialized::{IndexCollection, RawHashes},
+};
 
 const INDEX_FILENAME: &str = "index-3.json";
 const DIFF_FILENAME: &str = "diff-3.list";
@@ -11,38 +20,57 @@ pub struct Reference {
     reply_refs: RepliesHashMap,
     ordered: Vec<Rc<DbPostRefHash>>,
 }
+type RcHashSet = HashSet<Rc<DbPostRefHash>>;
+
+struct RcHashes {
+    post_hash: Rc<DbPostRefHash>,
+    parent_hash: Rc<DbPostRefHash>,
+}
 
 impl Reference {
-    pub fn new(index: IndexCollection) -> std::io::Result<Reference> {
-        let index_file = File::open(INDEX_FILENAME)?;
-        let index_collection = serde_json::from_reader::<_, IndexCollection>(BufReader::new(index_file))?;
+    pub fn new(index_collection: IndexCollection) -> Reference {
+        let mut refs = DbRefHashMap::new();
+        let mut reply_refs = RepliesHashMap::new();
+        let mut ordered = Vec::with_capacity(index_collection.indexes.len());
 
-        let mut refs  = DbRefHashMap::new();
-        let mut reply_refs  = RepliesHashMap::new();
-        let mut hashes = HashSet::new();
-        
+        let mut hashes_set = HashSet::new();
+
         for ser_post in index_collection.indexes {
-            let (hash, data) = ser_post.split();
-            let hash_rc = Rc::new(hash.hash);
-            let parent_rc = Rc::new(hash.parent);
-            if !hashes.contains(&hash_rc) {
-                hashes.insert(hash_rc.clone());
-            }
+            let (raw_hashes, data) = ser_post.split();
 
-            if !hashes.contains(&parent_rc) {
-                hashes.insert(parent_rc.clone());
-            }
+            let rc_hashes = Self::get_post_and_parent_rcs(raw_hashes, &mut hashes_set);
+            let post_hash = rc_hashes.post_hash;
+            let parent_hash = rc_hashes.parent_hash;
+            refs.insert(Rc::clone(&post_hash), data);
 
-            let hash_rc = hashes.get(&hash_rc).unwrap();
-            let parent_rc = hashes.get(&parent_rc).unwrap();
+            let parent_post_replies = reply_refs.entry(parent_hash).or_insert(Vec::new());
+            parent_post_replies.push(Rc::clone(&post_hash));
 
-            refs.insert(Rc::clone(&hash_rc), data);
-
-            let key = Rc::clone(&hash_rc);
-            let parent_post_replies = reply_refs.entry(key).or_insert(Vec::new());
+            ordered.push(Rc::clone(&post_hash))
         }
 
-        todo!()
+        Reference {
+            ordered,
+            refs,
+            reply_refs,
+        }
+    }
 
+    fn get_post_and_parent_rcs(hashes: RawHashes, hash_set: &mut RcHashSet) -> RcHashes {
+        fn get_rc(hash: DbPostRefHash, hash_set: &mut RcHashSet) -> Rc<DbPostRefHash> {
+            let rc = Rc::new(hash);
+            if !hash_set.contains(&rc) {
+                hash_set.insert(Rc::clone(&rc));
+            }
+
+            hash_set.get(&Rc::clone(&rc)).unwrap().clone()
+        }
+        let hash = get_rc(hashes.hash, hash_set);
+        let parent = get_rc(hashes.parent, hash_set);
+
+        RcHashes {
+            post_hash: hash,
+            parent_hash: parent,
+        }
     }
 }
