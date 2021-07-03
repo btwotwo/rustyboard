@@ -40,6 +40,7 @@ impl Reference {
         let mut refs = DbRefHashMap::new();
         let mut reply_refs = RepliesHashMap::new();
         let mut ordered = Vec::with_capacity(index_collection.indexes.len());
+        let mut deleted = DeletedPosts::new();
 
         let mut hashes_set = HashSet::new();
 
@@ -49,18 +50,25 @@ impl Reference {
             let rc_hashes = Self::get_post_and_parent_rcs(raw_hashes, &mut hashes_set);
             let post_hash = rc_hashes.post_hash;
             let parent_hash = rc_hashes.parent_hash;
+
+            if data.deleted {
+                deleted.insert(Rc::clone(&post_hash));
+            }
+            
             refs.insert(Rc::clone(&post_hash), data);
 
             let parent_post_replies = reply_refs.entry(parent_hash).or_insert_with(Vec::new);
             parent_post_replies.push(Rc::clone(&post_hash));
 
             ordered.push(Rc::clone(&post_hash))
+
         }
 
         Reference {
             refs,
             reply_refs,
             ordered,
+            deleted
         }
     }
 
