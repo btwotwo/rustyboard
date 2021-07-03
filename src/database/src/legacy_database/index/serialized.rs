@@ -7,30 +7,30 @@ use super::db_post_ref::{DbPostRef, DbPostRefHash};
 pub struct DbPostRefSerialized {
     /// Post hash
     #[serde(rename = "h")]
-    hash: String,
+    pub hash: String,
 
     /// Hash of the parent post
     #[serde(rename = "r")]
-    reply_to: String,
+    pub reply_to: String,
 
     /// Offset in bytes from the start of the chunk
     #[serde(rename = "o")]
-    offset: u64,
+    pub offset: u64,
 
     /// Length of the post message in bytes
     #[serde(rename = "l")]
-    length: u64,
+    pub length: u64,
 
     /// Is post deleted. If it's deleted, it won't be shown in list of the posts
     #[serde(rename = "d")]
-    deleted: bool,
+    pub deleted: bool,
 
     /// Chunk filename
     #[serde(rename = "f")]
-    chunk_name: String,
+    pub chunk_name: String,
 }
 
-/// A collection of database references
+/// A collection of raw deserialized database references
 #[derive(Serialize, Deserialize)]
 pub struct IndexCollection {
     pub indexes: Vec<DbPostRefSerialized>,
