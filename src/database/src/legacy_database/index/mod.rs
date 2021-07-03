@@ -1,25 +1,33 @@
-mod db_post_ref;
-mod serialized;
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    hash::Hash,
-    io::BufReader,
-    rc::Rc,
-};
+pub mod db_post_ref;
+pub mod serialized;
+use std::{collections::{HashMap, HashSet}, rc::Rc};
 
-use self::{
-    db_post_ref::{DbPostRefHash, DbRefHashMap, RepliesHashMap},
-    serialized::{IndexCollection, RawHashes},
-};
+use self::{db_post_ref::{DbPostRef, DbPostRefHash}, serialized::{IndexCollection, RawHashes}};
 
-const INDEX_FILENAME: &str = "index-3.json";
-const DIFF_FILENAME: &str = "diff-3.list";
+
+pub type DbRefHashMap = HashMap<Rc<DbPostRefHash>, DbPostRef>;
+
+pub type RepliesHashMap = HashMap<Rc<DbPostRefHash>, Vec<Rc<DbPostRefHash>>>;
+
+pub type OrderedHashes = Vec<Rc<DbPostRefHash>>;
+
+pub type DeletedPosts = HashSet<Rc<DbPostRefHash>>;
+
+
 pub struct Reference {
-    refs: DbRefHashMap,
-    reply_refs: RepliesHashMap,
-    ordered: Vec<Rc<DbPostRefHash>>,
+    ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef] 
+    pub refs: DbRefHashMap,
+
+    ///[HashMap] of post replies. `Key` is hash of the post, and `value` is [Vec] of [DbPostRef]
+    pub reply_refs: RepliesHashMap,
+
+    /// Posts in the same order as they are in the index collection
+    pub ordered: OrderedHashes,
+
+    ///Post hashes which were deleted from the database
+    pub deleted: DeletedPosts
 }
+
 type RcHashSet = HashSet<Rc<DbPostRefHash>>;
 
 struct RcHashes {
@@ -43,16 +51,16 @@ impl Reference {
             let parent_hash = rc_hashes.parent_hash;
             refs.insert(Rc::clone(&post_hash), data);
 
-            let parent_post_replies = reply_refs.entry(parent_hash).or_insert(Vec::new());
+            let parent_post_replies = reply_refs.entry(parent_hash).or_insert_with(Vec::new);
             parent_post_replies.push(Rc::clone(&post_hash));
 
             ordered.push(Rc::clone(&post_hash))
         }
 
         Reference {
-            ordered,
             refs,
             reply_refs,
+            ordered,
         }
     }
 
@@ -74,3 +82,6 @@ impl Reference {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
