@@ -31,6 +31,23 @@ fn when_passed_index_collection_should_create_valid_reference() {
     assert!(reference.reply_refs.contains_key(&rc("3")) == false);
 }
 
+#[test]
+fn when_contains_deleted_post_should_add_to_deleted() {
+    let ref1 = some_raw_ref("1", "0", 1);
+    let mut ref2 = some_raw_ref("2", "0", 5);
+    ref2.deleted = true;
+
+    let collection = IndexCollection {
+        indexes: vec![ref1, ref2]
+    };
+
+    let reference = Reference::new(collection);
+    let deleted_rc = rc("2");
+
+    assert_eq!(reference.deleted.len(), 1);
+    assert!(reference.deleted.contains(&deleted_rc));
+}
+
 fn rc(str: &str) -> Rc<String> {
     Rc::new(str.to_string())
 }
