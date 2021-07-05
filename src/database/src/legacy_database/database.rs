@@ -1,6 +1,9 @@
 use std::io::{self, BufReader};
 
-use super::{chunk::{Chunk, ChunkError}, index::{Reference, serialized::IndexCollection}};
+use super::{
+    chunk::{Chunk, ChunkError},
+    index::{serialized::IndexCollection, Reference},
+};
 use crate::{post::Post, post_database::Database};
 use thiserror::Error;
 
@@ -15,14 +18,14 @@ pub enum LegacyDatabaseError {
     #[error("IO error")]
     IoError {
         #[from]
-        source: io::Error
+        source: io::Error,
     },
 
     #[error("Serde error")]
     SerdeError {
         #[from]
-        source: serde_json::Error
-    }
+        source: serde_json::Error,
+    },
 }
 
 const INDEX_FILENAME: &str = "index-3.json";
@@ -31,17 +34,17 @@ pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
 
 struct LegacyDatabase {
     current_chunk: Chunk,
-    reference: Reference
+    reference: Reference,
 }
 
 impl LegacyDatabase {
     pub fn new(index_file: std::fs::File) -> LegacyDatabaseResult<Self> {
         let index: IndexCollection = serde_json::from_reader(BufReader::new(index_file))?;
-        let reference= Reference::new(index);
+        let reference = Reference::new(index);
 
         Ok(LegacyDatabase {
             current_chunk: Chunk::try_new(None)?,
-            reference
+            reference,
         })
     }
 }
