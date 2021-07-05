@@ -1,10 +1,13 @@
-use std::{rc::Rc};
+use std::rc::Rc;
 
-use pretty_assertions::{assert_eq};
+use pretty_assertions::assert_eq;
 
 use crate::legacy_database::index::Reference;
 
-use super::{db_post_ref::{DbPostRef, DbPostRefHash}, serialized::{DbPostRefSerialized, IndexCollection}};
+use super::{
+    db_post_ref::{DbPostRef, DbPostRefHash},
+    serialized::{DbPostRefSerialized, IndexCollection},
+};
 #[test]
 fn when_passed_index_collection_should_create_valid_reference() {
     let ref_1 = some_raw_ref("1", "0", 1);
@@ -38,7 +41,7 @@ fn when_contains_deleted_post_should_add_to_deleted() {
     ref2.deleted = true;
 
     let collection = IndexCollection {
-        indexes: vec![ref1, ref2]
+        indexes: vec![ref1, ref2],
     };
 
     let reference = Reference::new(collection);
@@ -59,7 +62,7 @@ fn when_there_is_unused_space_should_add_post_hash_to_free() {
     let ref3 = some_raw_ref("3", "1", 10);
 
     let coll = IndexCollection {
-        indexes: vec![ref1, ref2, ref3]
+        indexes: vec![ref1, ref2, ref3],
     };
 
     let reference = Reference::new(coll);
@@ -75,10 +78,10 @@ fn rc(hash: &str) -> Rc<DbPostRefHash> {
 
 fn some_ref(length: u64) -> DbPostRef {
     DbPostRef {
-        chunk_name: "0.db3".to_string(),
+        chunk_index: Some(0),
         deleted: false,
-        length: length,
-        offset: 1,
+        length,
+        offset: Some(1),
     }
 }
 
