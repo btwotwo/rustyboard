@@ -60,8 +60,6 @@ impl Chunk {
     /// **Warning!** This function doesn't check for chunk's size
     /// # Arguments
     /// * `index` - chunk's index ('0.db3', '1.db3'...)
-    
-
 
     //TODO: tests
     pub fn open(index: ChunkIndex) -> ChunkResult<Self> {
@@ -100,7 +98,6 @@ impl Chunk {
     /// Tries to open already existing chunk starting from `index`. If chunk is larger than the `max_chunk_size`, tries to open the next one.
     /// # Errors
     /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
-    
 
     //TODO: tests
     pub fn try_new_from(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {

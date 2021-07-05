@@ -70,6 +70,7 @@ impl Reference {
             free_ref.chunk_index = None;
             free_ref.offset = None;
 
+            self.free.remove(&free_ref_hash);
             //todo: Update diff file!
         }
 
@@ -84,7 +85,7 @@ impl Reference {
     }
 
     fn put_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
-        let hash_rc = Rc::new(hashes.hash);
+        let hash_rc: Rc<String> = hashes.hash.into();
         let parent_rc = self.get_parent_rc(hashes.parent);
 
         if post.deleted {
@@ -108,9 +109,20 @@ impl Reference {
 
     fn find_free_ref(&mut self, post_bytes: &Vec<u8>) -> Option<Rc<DbPostRefHash>> {
         let post_length = post_bytes.len();
+        let best = self.find_best_free_ref(post_length);
+
+        match best {
+            Some(hash) => {
+                let clone = Rc::clone(&hash);
+                Some(clone)
+            }
+            None => None,
+        }
+    }
+
+    fn find_best_free_ref(&self, post_length: usize) -> Option<&Rc<DbPostRefHash>> {
         let mut min = u64::MAX;
         let mut best: Option<&Rc<DbPostRefHash>> = None;
-
         for hash in self.free.iter() {
             let free_item = &self.refs[hash];
             if free_item.length >= post_length as u64 {
@@ -123,14 +135,7 @@ impl Reference {
             }
         }
 
-        match best {
-            Some(hash) => {
-                let clone = Rc::clone(&hash);
-                self.free.remove(hash);
-                Some(clone)
-            }
-            None => None,
-        }
+        best
     }
 
     fn get_parent_rc(&self, parent: DbPostRefHash) -> Rc<DbPostRefHash> {
