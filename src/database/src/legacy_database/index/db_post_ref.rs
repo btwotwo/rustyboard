@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use crate::legacy_database::chunk::ChunkIndex;
 
 /// Post hash, immutable
-pub type DbPostRefHash = String;
+pub type DbPostRefHash = Rc<String>;
 
 #[derive(Debug, PartialEq)]
 pub struct DbPostRef {

@@ -72,7 +72,7 @@ fn when_there_is_unused_space_should_add_post_hash_to_free() {
     assert!(reference.free.contains(&free_rc))
 }
 
-fn rc(hash: &str) -> Rc<DbPostRefHash> {
+fn rc(hash: &str) -> DbPostRefHash {
     Rc::new(hash.to_string())
 }
 

@@ -14,11 +14,11 @@ use self::{
     serialized::{IndexCollection, PostHashes},
 };
 
-pub type DbRefHashMap = HashMap<Rc<DbPostRefHash>, DbPostRef>;
-pub type RepliesHashMap = HashMap<Rc<DbPostRefHash>, Vec<Rc<DbPostRefHash>>>;
-pub type OrderedHashes = Vec<Rc<DbPostRefHash>>;
-pub type DeletedPosts = HashSet<Rc<DbPostRefHash>>;
-pub type FreeSpaceHashes = HashSet<Rc<DbPostRefHash>>;
+pub type DbRefHashMap = HashMap<DbPostRefHash, DbPostRef>;
+pub type RepliesHashMap = HashMap<DbPostRefHash, Vec<DbPostRefHash>>;
+pub type OrderedHashes = Vec<DbPostRefHash>;
+pub type DeletedPosts = HashSet<DbPostRefHash>;
+pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
 
 #[derive(Default)]
 pub struct Reference {
@@ -75,8 +75,8 @@ impl Reference {
         }
 
         let hashes = PostHashes {
-            hash: post.hash,
-            parent: post.reply_to,
+            hash: DbPostRefHash::new(post.hash),
+            parent: DbPostRefHash::new(post.reply_to),
         };
 
         self.put_ref(&hashes, post_ref);
@@ -85,8 +85,8 @@ impl Reference {
     }
 
     fn put_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
-        let hash_rc: Rc<String> = hashes.hash.into();
-        let parent_rc = self.get_parent_rc(hashes.parent);
+        let hash_rc= &hashes.hash;
+        let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
 
         if post.deleted {
             self.deleted.insert(hash_rc.clone());
@@ -107,7 +107,7 @@ impl Reference {
         self.ordered.push(hash_rc.clone());
     }
 
-    fn find_free_ref(&mut self, post_bytes: &Vec<u8>) -> Option<Rc<DbPostRefHash>> {
+    fn find_free_ref(&mut self, post_bytes: &Vec<u8>) -> Option<DbPostRefHash> {
         let post_length = post_bytes.len();
         let best = self.find_best_free_ref(post_length);
 
@@ -120,9 +120,9 @@ impl Reference {
         }
     }
 
-    fn find_best_free_ref(&self, post_length: usize) -> Option<&Rc<DbPostRefHash>> {
+    fn find_best_free_ref(&self, post_length: usize) -> Option<&DbPostRefHash> {
         let mut min = u64::MAX;
-        let mut best: Option<&Rc<DbPostRefHash>> = None;
+        let mut best: Option<&DbPostRefHash> = None;
         for hash in self.free.iter() {
             let free_item = &self.refs[hash];
             if free_item.length >= post_length as u64 {
@@ -138,13 +138,12 @@ impl Reference {
         best
     }
 
-    fn get_parent_rc(&self, parent: DbPostRefHash) -> Rc<DbPostRefHash> {
-        let rc = Rc::new(parent);
-        let kv = self.refs.get_key_value(&rc);
+    fn get_parent_rc(&self, parent: DbPostRefHash) -> DbPostRefHash {
+        let kv = self.refs.get_key_value(&parent);
 
         match kv {
             Some((key, _)) => Rc::clone(key),
-            None => rc,
+            None => parent,
         }
     }
 }

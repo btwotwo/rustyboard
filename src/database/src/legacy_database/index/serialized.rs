@@ -47,7 +47,10 @@ impl DbPostRefSerialized {
     pub fn split(self) -> (PostHashes, DbPostRef) {
         let hash = self.hash;
         let parent = self.reply_to;
-        let hashes = PostHashes { parent, hash };
+        let hashes = PostHashes {
+            parent: DbPostRefHash::new(parent),
+            hash: DbPostRefHash::new(hash),
+        };
 
         let chunk_idx = Chunk::name_to_index(self.chunk_name);
 

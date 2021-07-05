@@ -56,10 +56,10 @@ impl Database for LegacyDatabase {
         //todo allow_reput
         //todo validate post
         let db_post_ref = self.reference.put_post(post);
-        let chunk = match db_post_ref.chunk_index {
-            Some(idx) => Chunk::open(idx).unwrap(),
-            None => self.last_chunk,
-        };
+        // let chunk = match db_post_ref.chunk_index {
+        //     Some(idx) => Chunk::open(idx).unwrap(),
+        //     None => self.last_chunk,
+        // };
 
         todo!()
     }
