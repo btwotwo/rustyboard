@@ -1,7 +1,7 @@
 use std::io::{self, BufReader};
 
 use super::{
-    chunk::{Chunk, ChunkError},
+    chunk::{Chunk, ChunkError, ChunkIndex},
     index::{serialized::IndexCollection, Reference},
 };
 use crate::{post::Post, post_database::Database};
@@ -33,8 +33,8 @@ const DIFF_FILENAME: &str = "diff-3.list";
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
 
 struct LegacyDatabase {
-    current_chunk: Chunk,
     reference: Reference,
+    last_chunk: Chunk,
 }
 
 impl LegacyDatabase {
@@ -43,14 +43,24 @@ impl LegacyDatabase {
         let reference = Reference::new(index);
 
         Ok(LegacyDatabase {
-            current_chunk: Chunk::try_new(None)?,
             reference,
+            last_chunk: Chunk::try_new(None)?,
         })
     }
 }
 
 impl Database for LegacyDatabase {
-    fn put_post(&mut self, post: Post, allow_reput: bool) {
+    // todo add database trait error
+    fn put_post(&mut self, post: Post, allow_reput: bool) /* -> LegacyDatabaseResult<()>*/
+    {
+        //todo allow_reput
+        //todo validate post
+        let db_post_ref = self.reference.put_post(post);
+        let chunk = match db_post_ref.chunk_index {
+            Some(idx) => Chunk::open(idx).unwrap(),
+            None => self.last_chunk,
+        };
+
         todo!()
     }
 
