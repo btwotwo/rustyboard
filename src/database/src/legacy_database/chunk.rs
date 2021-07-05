@@ -13,7 +13,7 @@ pub type ChunkIndex = u64;
 
 #[derive(Debug)]
 pub struct Chunk {
-    index: ChunkIndex,
+    pub index: ChunkIndex,
     file: File,
     max_chunk_size: u64,
 }
@@ -41,7 +41,7 @@ impl Chunk {
     /// If any IO error is encountered, its variant will be returned. The most common error should be non-existing file.
     /// If chunk with specified index is too big, error will be returned.
     pub fn try_open(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
-        let max_chunk_size = max_chunk_size.unwrap_or(MAX_CHUNK_SIZE);
+        let max_chunk_size = Self::get_chunk_size(max_chunk_size);
         let filename = Self::get_filename(index);
         let file = OpenOptions::new().append(true).open(filename)?;
         let chunk = Chunk {
@@ -53,6 +53,26 @@ impl Chunk {
         chunk.validate_chunk_size()?;
 
         Ok(chunk)
+    }
+
+    /// Tries to open existing chunk with specified index.
+    ///
+    /// **Warning!** This function doesn't check for chunk's size
+    /// # Arguments
+    /// * `index` - chunk's index ('0.db3', '1.db3'...)
+    
+
+
+    //TODO: tests
+    pub fn open(index: ChunkIndex) -> ChunkResult<Self> {
+        let filename = Self::get_filename(index);
+        let file = OpenOptions::new().append(true).open(filename)?;
+
+        Ok(Chunk {
+            file,
+            index,
+            max_chunk_size: MAX_CHUNK_SIZE,
+        })
     }
 
     pub fn try_create(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
@@ -72,10 +92,19 @@ impl Chunk {
 
     /// Tries to open already existing chunk, starting from `0.db3`. If chunk is larger than the limit, tries to open the next one.
     /// # Errors
-    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately,
-    /// otherwise it will continue trying to find a chunk.
+    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
     pub fn try_new(max_chunk_size: Option<u64>) -> ChunkResult<Self> {
-        let mut index = 0;
+        Self::try_new_from(0, max_chunk_size)
+    }
+
+    /// Tries to open already existing chunk starting from `index`. If chunk is larger than the `max_chunk_size`, tries to open the next one.
+    /// # Errors
+    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
+    
+
+    //TODO: tests
+    pub fn try_new_from(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
+        let mut index = index;
         loop {
             let chunk = Self::try_open(index, max_chunk_size);
             match chunk {
@@ -102,6 +131,9 @@ impl Chunk {
         Ok(chunk)
     }
 
+    /// Appends data to the chunk.
+    /// # Errors
+    /// If the chunk is too large, will return an error.
     pub fn try_append_data<I>(&mut self, data: I) -> ChunkResult<()>
     where
         I: Into<Vec<u8>>,
@@ -110,6 +142,13 @@ impl Chunk {
         self.file.write_all(&data.into())?;
 
         Ok(())
+    }
+
+    /// Converts chunk name (`0.db3`) to the chunk index
+    pub fn name_to_index(chunk_name: String) -> ChunkIndex {
+        let index_str = chunk_name.replace(CHUNK_EXT, "");
+
+        index_str.parse::<ChunkIndex>().unwrap()
     }
 
     fn validate_chunk_size(&self) -> ChunkResult<()> {
@@ -122,6 +161,10 @@ impl Chunk {
 
     fn get_filename(index: ChunkIndex) -> String {
         format!("{}.{}", index, CHUNK_EXT)
+    }
+
+    fn get_chunk_size(chunk_size: Option<u64>) -> u64 {
+        chunk_size.unwrap_or(MAX_CHUNK_SIZE)
     }
 }
 
