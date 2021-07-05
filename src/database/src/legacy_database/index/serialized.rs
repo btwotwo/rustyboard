@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::legacy_database::chunk::Chunk;
+
 use super::db_post_ref::{DbPostRef, DbPostRefHash};
 /// Reference of post messages, which are stored in chunks. This struct is serialized and written into
 /// `index-3.json` to save message positions inside chunks.
@@ -36,22 +38,24 @@ pub struct IndexCollection {
     pub indexes: Vec<DbPostRefSerialized>,
 }
 
-pub struct RawHashes {
+pub struct PostHashes {
     pub parent: DbPostRefHash,
     pub hash: DbPostRefHash,
 }
 
 impl DbPostRefSerialized {
-    pub fn split(self) -> (RawHashes, DbPostRef) {
+    pub fn split(self) -> (PostHashes, DbPostRef) {
         let hash = self.hash;
         let parent = self.reply_to;
-        let hashes = RawHashes { parent, hash };
+        let hashes = PostHashes { parent, hash };
+
+        let chunk_idx = Chunk::name_to_index(self.chunk_name);
 
         let db_post_ref = DbPostRef {
-            chunk_name: self.chunk_name,
+            chunk_index: Some(chunk_idx), //todo chunk_name can be null? check it and replace the type accordingly
             deleted: self.deleted,
             length: self.length,
-            offset: self.offset,
+            offset: Some(self.offset),
         };
 
         (hashes, db_post_ref)
