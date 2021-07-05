@@ -1,18 +1,24 @@
 pub mod db_post_ref;
 pub mod serialized;
-use std::{collections::{HashMap, HashSet}, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
-use self::{db_post_ref::{DbPostRef, DbPostRefHash}, serialized::{IndexCollection, RawHashes}};
-
+use self::{
+    db_post_ref::{DbPostRef, DbPostRefHash},
+    serialized::{IndexCollection, PostHashes},
+};
 
 pub type DbRefHashMap = HashMap<Rc<DbPostRefHash>, DbPostRef>;
 pub type RepliesHashMap = HashMap<Rc<DbPostRefHash>, Vec<Rc<DbPostRefHash>>>;
 pub type OrderedHashes = Vec<Rc<DbPostRefHash>>;
 pub type DeletedPosts = HashSet<Rc<DbPostRefHash>>;
-pub type FreePostSpace = HashSet<Rc<DbPostRefHash>>;
+pub type FreeSpaceHashes = HashSet<Rc<DbPostRefHash>>;
 
+#[derive(Default)]
 pub struct Reference {
-    ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef] 
+    ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef]
     pub refs: DbRefHashMap,
 
     ///[HashMap] of post replies. `Key` is hash of the post, and `value` is [Vec] of [DbPostRef]
@@ -25,74 +31,52 @@ pub struct Reference {
     pub deleted: DeletedPosts,
 
     ///Post hashes which are marked as deleted and their space is not used now
-    pub free: FreePostSpace
-}
-
-type RcHashSet = HashSet<Rc<DbPostRefHash>>;
-
-struct RcHashes {
-    post_hash: Rc<DbPostRefHash>,
-    parent_hash: Rc<DbPostRefHash>,
+    pub free: FreeSpaceHashes,
 }
 
 impl Reference {
     pub fn new(index_collection: IndexCollection) -> Reference {
-        let mut refs = DbRefHashMap::new();
-        let mut reply_refs = RepliesHashMap::new();
-        let mut ordered = Vec::with_capacity(index_collection.indexes.len());
-        let mut deleted = DeletedPosts::new();
-        let mut free = FreePostSpace::new();
-
-        let mut hashes_set = HashSet::new();
+        let mut refr = Reference::default();
+        refr.ordered.reserve(index_collection.indexes.len());
 
         for ser_post in index_collection.indexes {
             let (raw_hashes, data) = ser_post.split();
-
-            let rc_hashes = Self::get_post_and_parent_rcs(raw_hashes, &mut hashes_set);
-            let post_hash = rc_hashes.post_hash;
-            let parent_hash = rc_hashes.parent_hash;
-
-            if data.deleted {
-                deleted.insert(Rc::clone(&post_hash));
-
-                if data.length > 0 {
-                    free.insert(Rc::clone(&post_hash));
-                }
-            }
-            
-            refs.insert(Rc::clone(&post_hash), data);
-
-            let parent_post_replies = reply_refs.entry(parent_hash).or_insert_with(Vec::new);
-            parent_post_replies.push(Rc::clone(&post_hash));
-
-            ordered.push(Rc::clone(&post_hash))
-
+            refr.put_ref(raw_hashes, data);
         }
 
-        Reference {
-            refs,
-            reply_refs,
-            ordered,
-            deleted,
-            free
-        }
+        refr
     }
 
-    fn get_post_and_parent_rcs(hashes: RawHashes, hash_set: &mut RcHashSet) -> RcHashes {
-        fn get_rc(hash: DbPostRefHash, hash_set: &mut RcHashSet) -> Rc<DbPostRefHash> {
-            let rc = Rc::new(hash);
-            if !hash_set.contains(&rc) {
-                hash_set.insert(Rc::clone(&rc));
+    pub fn put_ref(&mut self, hashes: PostHashes, post: DbPostRef) {
+        let hash_rc = Rc::new(hashes.hash);
+        let parent_rc = self.get_parent_rc(hashes.parent);
+
+        if post.deleted {
+            self.deleted.insert(hash_rc.clone());
+
+            if post.length > 0 {
+                self.free.insert(hash_rc.clone());
             }
-
-            hash_set.get(&Rc::clone(&rc)).unwrap().clone()
         }
-        let hash = get_rc(hashes.hash, hash_set);
-        let parent = get_rc(hashes.parent, hash_set);
 
-        RcHashes {
-            post_hash: hash,
-            parent_hash: parent,
+        self.refs.insert(hash_rc.clone(), post);
+
+        let parent_post_replies = self
+            .reply_refs
+            .entry(parent_rc.clone())
+            .or_insert_with(Vec::new);
+
+        parent_post_replies.push(hash_rc.clone());
+        self.ordered.push(hash_rc.clone());
+    }
+
+    fn get_parent_rc(&self, parent: DbPostRefHash) -> Rc<DbPostRefHash> {
+        let rc = Rc::new(parent);
+        let kv = self.refs.get_key_value(&rc);
+
+        match kv {
+            Some((key, _)) => Rc::clone(key),
+            None => rc,
         }
     }
 }
