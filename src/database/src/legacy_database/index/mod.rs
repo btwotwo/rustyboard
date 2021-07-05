@@ -6,13 +6,10 @@ use self::{db_post_ref::{DbPostRef, DbPostRefHash}, serialized::{IndexCollection
 
 
 pub type DbRefHashMap = HashMap<Rc<DbPostRefHash>, DbPostRef>;
-
 pub type RepliesHashMap = HashMap<Rc<DbPostRefHash>, Vec<Rc<DbPostRefHash>>>;
-
 pub type OrderedHashes = Vec<Rc<DbPostRefHash>>;
-
 pub type DeletedPosts = HashSet<Rc<DbPostRefHash>>;
-
+pub type FreePostSpace = HashSet<Rc<DbPostRefHash>>;
 
 pub struct Reference {
     ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef] 
@@ -25,7 +22,10 @@ pub struct Reference {
     pub ordered: OrderedHashes,
 
     ///Post hashes which were deleted from the database
-    pub deleted: DeletedPosts
+    pub deleted: DeletedPosts,
+
+    ///Post hashes which are marked as deleted and their space is not used now
+    pub free: FreePostSpace
 }
 
 type RcHashSet = HashSet<Rc<DbPostRefHash>>;
@@ -41,6 +41,7 @@ impl Reference {
         let mut reply_refs = RepliesHashMap::new();
         let mut ordered = Vec::with_capacity(index_collection.indexes.len());
         let mut deleted = DeletedPosts::new();
+        let mut free = FreePostSpace::new();
 
         let mut hashes_set = HashSet::new();
 
@@ -53,6 +54,10 @@ impl Reference {
 
             if data.deleted {
                 deleted.insert(Rc::clone(&post_hash));
+
+                if data.length > 0 {
+                    free.insert(Rc::clone(&post_hash));
+                }
             }
             
             refs.insert(Rc::clone(&post_hash), data);
@@ -68,7 +73,8 @@ impl Reference {
             refs,
             reply_refs,
             ordered,
-            deleted
+            deleted,
+            free
         }
     }
 

@@ -4,7 +4,7 @@ use pretty_assertions::{assert_eq};
 
 use crate::legacy_database::index::Reference;
 
-use super::{db_post_ref::DbPostRef, serialized::{DbPostRefSerialized, IndexCollection}};
+use super::{db_post_ref::{DbPostRef, DbPostRefHash}, serialized::{DbPostRefSerialized, IndexCollection}};
 #[test]
 fn when_passed_index_collection_should_create_valid_reference() {
     let ref_1 = some_raw_ref("1", "0", 1);
@@ -48,8 +48,29 @@ fn when_contains_deleted_post_should_add_to_deleted() {
     assert!(reference.deleted.contains(&deleted_rc));
 }
 
-fn rc(str: &str) -> Rc<String> {
-    Rc::new(str.to_string())
+#[test]
+fn when_there_is_unused_space_should_add_post_hash_to_free() {
+    let mut ref1 = some_raw_ref("1", "0", 0);
+    ref1.deleted = true;
+
+    let mut ref2 = some_raw_ref("2", "0", 10);
+    ref2.deleted = true;
+
+    let ref3 = some_raw_ref("3", "1", 10);
+
+    let coll = IndexCollection {
+        indexes: vec![ref1, ref2, ref3]
+    };
+
+    let reference = Reference::new(coll);
+    let free_rc = rc("2");
+
+    assert_eq!(reference.free.len(), 1);
+    assert!(reference.free.contains(&free_rc))
+}
+
+fn rc(hash: &str) -> Rc<DbPostRefHash> {
+    Rc::new(hash.to_string())
 }
 
 fn some_ref(length: u64) -> DbPostRef {
