@@ -2,8 +2,12 @@ pub mod db_post_ref;
 pub mod serialized;
 use std::{
     collections::{HashMap, HashSet},
+    i32::MAX,
     rc::Rc,
+    usize,
 };
+
+use crate::post::Post;
 
 use self::{
     db_post_ref::{DbPostRef, DbPostRefHash},
@@ -41,13 +45,45 @@ impl Reference {
 
         for ser_post in index_collection.indexes {
             let (raw_hashes, data) = ser_post.split();
-            refr.put_ref(raw_hashes, data);
+            refr.put_ref(&raw_hashes, data);
         }
 
         refr
     }
 
-    pub fn put_ref(&mut self, hashes: PostHashes, post: DbPostRef) {
+    pub fn put_post(&mut self, post: Post) -> &DbPostRef {
+        let post_bytes = post.get_bytes();
+        let mut post_ref = DbPostRef {
+            //todo: replace this with a separate struct (i.e. ChunkData), make field optional
+            chunk_index: None,
+            offset: None,
+            deleted: false,
+            length: post_bytes.len() as u64,
+        };
+
+        let opt_hash = self.find_free_ref(&post_bytes);
+        if let Some(free_ref_hash) = opt_hash {
+            let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
+            post_ref.offset = free_ref.offset;
+            post_ref.chunk_index = free_ref.chunk_index;
+
+            free_ref.chunk_index = None;
+            free_ref.offset = None;
+
+            //todo: Update diff file!
+        }
+
+        let hashes = PostHashes {
+            hash: post.hash,
+            parent: post.reply_to,
+        };
+
+        self.put_ref(&hashes, post_ref);
+
+        &self.refs[&hashes.hash]
+    }
+
+    fn put_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
         let hash_rc = Rc::new(hashes.hash);
         let parent_rc = self.get_parent_rc(hashes.parent);
 
@@ -68,6 +104,33 @@ impl Reference {
 
         parent_post_replies.push(hash_rc.clone());
         self.ordered.push(hash_rc.clone());
+    }
+
+    fn find_free_ref(&mut self, post_bytes: &Vec<u8>) -> Option<Rc<DbPostRefHash>> {
+        let post_length = post_bytes.len();
+        let mut min = u64::MAX;
+        let mut best: Option<&Rc<DbPostRefHash>> = None;
+
+        for hash in self.free.iter() {
+            let free_item = &self.refs[hash];
+            if free_item.length >= post_length as u64 {
+                let diff = free_item.length - post_length as u64;
+
+                if diff < min {
+                    min = diff;
+                    best = Some(hash);
+                }
+            }
+        }
+
+        match best {
+            Some(hash) => {
+                let clone = Rc::clone(&hash);
+                self.free.remove(hash);
+                Some(clone)
+            }
+            None => None,
+        }
     }
 
     fn get_parent_rc(&self, parent: DbPostRefHash) -> Rc<DbPostRefHash> {
