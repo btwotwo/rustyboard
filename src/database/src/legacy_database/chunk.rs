@@ -4,7 +4,7 @@ use std::io::ErrorKind::NotFound;
 use std::io::Write;
 use thiserror::Error;
 
-pub const CHUNK_EXT: &str = "db3";
+pub const CHUNK_EXT: &str = ".db3";
 
 #[allow(clippy::identity_op)] // For better readability
 const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
@@ -157,7 +157,7 @@ impl Chunk {
     }
 
     fn get_filename(index: ChunkIndex) -> String {
-        format!("{}.{}", index, CHUNK_EXT)
+        format!("{}{}", index, CHUNK_EXT)
     }
 
     fn get_chunk_size(chunk_size: Option<u64>) -> u64 {
