@@ -15,4 +15,3 @@ pub struct DbPostRef {
     /// Chunk name which contains the post
     pub chunk_name: String,
 }
-
