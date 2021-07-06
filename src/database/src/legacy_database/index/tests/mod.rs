@@ -78,10 +78,12 @@ fn rc(hash: &str) -> DbPostRefHash {
 
 fn some_ref(length: u64) -> DbPostRef {
     DbPostRef {
-        chunk_index: Some(0),
+        chunk_settings: Some(ChunkSettings {
+            chunk_index: 0,
+            offset: 1,
+        }),
         deleted: false,
         length,
-        offset: Some(1),
     }
 }
 
