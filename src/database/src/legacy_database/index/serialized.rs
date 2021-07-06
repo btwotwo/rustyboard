@@ -51,7 +51,7 @@ impl DbPostRefSerialized {
             parent: DbPostRefHash::new(parent),
             hash: DbPostRefHash::new(hash),
         };
-        let chunk_idx = self.chunk_name.map(|name| Chunk::name_to_index(name));
+        let chunk_idx = self.chunk_name.map(Chunk::name_to_index);
         let chunk_settings = match chunk_idx {
             Some(chunk_index) => Some(ChunkSettings {
                 chunk_index,

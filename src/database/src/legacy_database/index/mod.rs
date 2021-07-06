@@ -104,14 +104,14 @@ impl DbRefCollection {
 
         let parent_post_replies = self
             .reply_refs
-            .entry(parent_rc.clone())
+            .entry(parent_rc)
             .or_insert_with(Vec::new);
 
         parent_post_replies.push(hash_rc.clone());
         self.ordered.push(hash_rc.clone());
     }
 
-    fn find_free_ref(&mut self, post_bytes: &Vec<u8>) -> Option<DbPostRefHash> {
+    fn find_free_ref(&mut self, post_bytes: &[u8]) -> Option<DbPostRefHash> {
         let post_length = post_bytes.len();
         let best = self.find_best_free_ref(post_length);
 
