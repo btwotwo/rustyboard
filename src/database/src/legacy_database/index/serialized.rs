@@ -29,7 +29,7 @@ pub struct DbPostRefSerialized {
 
     /// Chunk filename
     #[serde(rename = "f")]
-    pub chunk_name: String,
+    pub chunk_name: Option<String>,
 }
 
 /// A collection of raw deserialized database references
@@ -51,14 +51,17 @@ impl DbPostRefSerialized {
             parent: DbPostRefHash::new(parent),
             hash: DbPostRefHash::new(hash),
         };
-
-        let chunk_idx = Chunk::name_to_index(self.chunk_name);
+        let chunk_idx = self.chunk_name.map(|name| Chunk::name_to_index(name));
+        let chunk_settings = match chunk_idx {
+            Some(chunk_index) => Some(ChunkSettings {
+                chunk_index,
+                offset: self.offset,
+            }),
+            None => None,
+        };
 
         let db_post_ref = DbPostRef {
-            chunk_settings: Some(ChunkSettings {
-                offset: self.offset,
-                chunk_index: chunk_idx,
-            }),
+            chunk_settings,
             deleted: self.deleted,
             length: self.length,
         };
