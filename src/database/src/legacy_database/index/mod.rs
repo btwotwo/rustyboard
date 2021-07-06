@@ -109,6 +109,7 @@ impl DbRefCollection {
         self.ordered.push(hash_rc.clone());
     }
 
+    // Todo reuse the rest of free space
     fn find_free_ref(&self, post_bytes: &[u8]) -> Option<DbPostRefHash> {
         let post_length = post_bytes.len();
         let best = self.find_best_free_ref(post_length);
