@@ -2,7 +2,8 @@ use std::rc::Rc;
 
 use crate::legacy_database::index::{
     db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
-    serialized::DbPostRefSerialized,
+    serialized::{DbPostRefSerialized, IndexCollection},
+    DbRefCollection,
 };
 
 pub fn rc(hash: &str) -> DbPostRefHash {
@@ -27,6 +28,34 @@ pub fn some_raw_ref(hash: &str, parent: &str, length: u64) -> DbPostRefSerialize
         offset: 1,
         length,
         deleted: false,
-        chunk_name: Some("0.db3".to_string())
+        chunk_name: Some("0.db3".to_string()),
     }
+}
+
+/// Ref without reclaimed space
+pub fn some_raw_deleted_ref(hash: &str, parent: &str, length: u64) -> DbPostRefSerialized {
+    DbPostRefSerialized {
+        hash: hash.to_string(),
+        reply_to: parent.to_string(),
+        offset: 1,
+        length,
+        deleted: true,
+        chunk_name: Some("0.db3".to_string()),
+    }
+}
+
+/// Ref with reclaimed space
+pub fn some_raw_removed_ref(hash: &str, parent: &str) -> DbPostRefSerialized {
+    DbPostRefSerialized {
+        hash: hash.to_string(),
+        reply_to: parent.to_string(),
+        offset: 1,
+        length: 0,
+        deleted: true,
+        chunk_name: None,
+    }
+}
+
+pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection {
+    DbRefCollection::new(IndexCollection { indexes: refs })
 }
