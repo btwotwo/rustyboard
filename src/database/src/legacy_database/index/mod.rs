@@ -70,6 +70,7 @@ impl DbRefCollection {
             let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
             let free_chunk_settings = mem::replace(&mut free_ref.chunk_settings, None);
             post_ref.chunk_settings = free_chunk_settings;
+            free_ref.length = 0;
 
             self.free.remove(&free_ref_hash);
             //todo: Update diff file!
@@ -102,16 +103,13 @@ impl DbRefCollection {
 
         self.refs.insert(hash_rc.clone(), post);
 
-        let parent_post_replies = self
-            .reply_refs
-            .entry(parent_rc)
-            .or_insert_with(Vec::new);
+        let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
 
         parent_post_replies.push(hash_rc.clone());
         self.ordered.push(hash_rc.clone());
     }
 
-    fn find_free_ref(&mut self, post_bytes: &[u8]) -> Option<DbPostRefHash> {
+    fn find_free_ref(&self, post_bytes: &[u8]) -> Option<DbPostRefHash> {
         let post_length = post_bytes.len();
         let best = self.find_best_free_ref(post_length);
 
