@@ -1,7 +1,8 @@
 pub struct Post {
     pub hash: String,
-    pub message: String,
     pub reply_to: String,
+    /// Base64 encoded post message
+    pub message: String,
 }
 
 impl Post {
