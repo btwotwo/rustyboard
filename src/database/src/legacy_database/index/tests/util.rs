@@ -27,6 +27,6 @@ pub fn some_raw_ref(hash: &str, parent: &str, length: u64) -> DbPostRefSerialize
         offset: 1,
         length,
         deleted: false,
-        chunk_name: "0.db3".to_string(),
+        chunk_name: Some("0.db3".to_string())
     }
 }
