@@ -2,7 +2,7 @@ pub mod db_post_ref;
 pub mod serialized;
 use std::{
     collections::{HashMap, HashSet},
-    i32::MAX,
+    mem,
     rc::Rc,
     usize,
 };
@@ -53,12 +53,14 @@ impl DbRefCollection {
         refr
     }
 
+    /// Puts post into the database reference collection.
+    ///
+    /// # Returns
+    /// A reference with an optional `chunk_data` specified, if one of the deleted posts' space was reused.
     pub fn put_post(&mut self, post: Post) -> &DbPostRef {
         let post_bytes = post.get_bytes();
         let mut post_ref = DbPostRef {
-            //todo: replace this with a separate struct (i.e. ChunkData), make field optional
-            chunk_index: None,
-            offset: None,
+            chunk_settings: None,
             deleted: false,
             length: post_bytes.len() as u64,
         };
@@ -66,11 +68,8 @@ impl DbRefCollection {
         let opt_hash = self.find_free_ref(&post_bytes);
         if let Some(free_ref_hash) = opt_hash {
             let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
-            post_ref.offset = free_ref.offset;
-            post_ref.chunk_index = free_ref.chunk_index;
-
-            free_ref.chunk_index = None;
-            free_ref.offset = None;
+            let free_chunk_settings = mem::replace(&mut free_ref.chunk_settings, None);
+            post_ref.chunk_settings = free_chunk_settings;
 
             self.free.remove(&free_ref_hash);
             //todo: Update diff file!
@@ -86,8 +85,11 @@ impl DbRefCollection {
         &self.refs[&hashes.hash]
     }
 
+    /// Puts post reference to the `refs`, `reply_refs`, and `deleted` if post was deleted.
+    ///
+    /// If post was deleted, checks for the
     fn put_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
-        let hash_rc= &hashes.hash;
+        let hash_rc = &hashes.hash;
         let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
 
         if post.deleted {
@@ -125,7 +127,11 @@ impl DbRefCollection {
     fn find_best_free_ref(&self, post_length: usize) -> Option<&DbPostRefHash> {
         let mut min = u64::MAX;
         let mut best: Option<&DbPostRefHash> = None;
-        for hash in self.free.iter() {
+        for hash in self
+            .free
+            .iter()
+            .filter(|p| self.refs[*p].chunk_settings.is_some())
+        {
             let free_item = &self.refs[hash];
             if free_item.length >= post_length as u64 {
                 let diff = free_item.length - post_length as u64;
