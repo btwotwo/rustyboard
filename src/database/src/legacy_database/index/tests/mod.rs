@@ -2,10 +2,10 @@ use std::rc::Rc;
 
 use pretty_assertions::assert_eq;
 
-use crate::legacy_database::index::Reference;
+use crate::legacy_database::index::DbRefCollection;
 
 use super::{
-    db_post_ref::{DbPostRef, DbPostRefHash},
+    db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
     serialized::{DbPostRefSerialized, IndexCollection},
 };
 #[test]
@@ -18,7 +18,7 @@ fn when_passed_index_collection_should_create_valid_reference() {
         indexes: vec![ref_1, ref_2, ref_3],
     };
 
-    let reference = Reference::new(collection);
+    let reference = DbRefCollection::new(collection);
     let rcs = vec![rc("1"), rc("2"), rc("3")];
 
     assert_eq!(reference.ordered, rcs);
@@ -44,7 +44,7 @@ fn when_contains_deleted_post_should_add_to_deleted() {
         indexes: vec![ref1, ref2],
     };
 
-    let reference = Reference::new(collection);
+    let reference = DbRefCollection::new(collection);
     let deleted_rc = rc("2");
 
     assert_eq!(reference.deleted.len(), 1);
@@ -65,7 +65,7 @@ fn when_there_is_unused_space_should_add_post_hash_to_free() {
         indexes: vec![ref1, ref2, ref3],
     };
 
-    let reference = Reference::new(coll);
+    let reference = DbRefCollection::new(coll);
     let free_rc = rc("2");
 
     assert_eq!(reference.free.len(), 1);

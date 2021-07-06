@@ -21,26 +21,28 @@ pub type DeletedPosts = HashSet<DbPostRefHash>;
 pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
 
 #[derive(Default)]
-pub struct Reference {
+/// Post references collection
+pub struct DbRefCollection {
     ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef]
-    pub refs: DbRefHashMap,
+    refs: DbRefHashMap,
 
     ///[HashMap] of post replies. `Key` is hash of the post, and `value` is [Vec] of [DbPostRef]
-    pub reply_refs: RepliesHashMap,
+    reply_refs: RepliesHashMap,
 
     /// Posts in the same order as they are in the index collection
-    pub ordered: OrderedHashes,
+    ordered: OrderedHashes,
 
     ///Post hashes which were deleted from the database
-    pub deleted: DeletedPosts,
+    deleted: DeletedPosts,
 
     ///Post hashes which are marked as deleted and their space is not used now
-    pub free: FreeSpaceHashes,
+    free: FreeSpaceHashes,
 }
 
-impl Reference {
-    pub fn new(index_collection: IndexCollection) -> Reference {
-        let mut refr = Reference::default();
+impl DbRefCollection {
+    /// Constructs reference collection from raw deserialized database references.
+    pub fn new(index_collection: IndexCollection) -> DbRefCollection {
+        let mut refr = DbRefCollection::default();
         refr.ordered.reserve(index_collection.indexes.len());
 
         for ser_post in index_collection.indexes {
