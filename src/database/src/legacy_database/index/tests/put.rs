@@ -1,5 +1,13 @@
-use crate::legacy_database::index::{
-    serialized::IndexCollection, tests::util::rc, DbRefCollection,
+use pretty_assertions::assert_eq;
+
+use crate::{
+    legacy_database::index::{
+        db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
+        serialized::IndexCollection,
+        tests::util::rc,
+        DbRefCollection,
+    },
+    post::Post,
 };
 
 use super::util::{collection, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref};
@@ -48,4 +56,79 @@ fn find_free_ref_should_find_most_suitable() {
 
     assert!(free_hash.is_some());
     assert_eq!(free_hash.unwrap(), rc("3"));
+}
+
+#[test]
+fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
+    let ref_1 = some_raw_ref("1", "0", 10);
+    let ref_2 = some_raw_removed_ref("2", "0");
+    let mut col = collection(vec![ref_1, ref_2]);
+
+    let post = Post {
+        hash: "3".to_string(),
+        reply_to: "0".to_string(),
+        message: base64::encode("message"),
+    };
+
+    let expected_db_ref = DbPostRef {
+        chunk_settings: None,
+        deleted: false,
+        length: 7,
+    };
+
+    let db_ref = col.put_post(post);
+
+    assert_eq!(&expected_db_ref, db_ref);
+}
+
+#[test]
+fn put_post_should_return_free_chunk_name_and_offset_if_free_space_found() {
+    let ref_1 = some_raw_ref("1", "0", 10);
+    let mut deletd_ref = some_raw_deleted_ref("2", "0", 10);
+    deletd_ref.chunk_name = Some("1.db3".to_string());
+    deletd_ref.offset = 333;
+
+    let removed_ref = some_raw_removed_ref("3", "0");
+
+    let mut col = collection(vec![ref_1, deletd_ref, removed_ref]);
+
+    let post = Post {
+        hash: "4".to_string(),
+        message: base64::encode("message"),
+        reply_to: "0".to_string(),
+    };
+
+    let expected_db_ref = DbPostRef {
+        chunk_settings: Some(ChunkSettings {
+            chunk_index: 1,
+            offset: 333,
+        }),
+        length: 7,
+        deleted: false,
+    };
+    let db_ref = col.put_post(post);
+
+    assert_eq!(db_ref, &expected_db_ref)
+}
+
+#[test]
+fn put_post_when_inserts_into_free_space_should_remove_chunk_data_from_free_post_and_set_length_to_0(
+) {
+    let ref_1 = some_raw_ref("1", "0", 10);
+    let mut deleted_ref = some_raw_deleted_ref("2", "0", 10);
+    deleted_ref.chunk_name = Some("1.db3".to_string());
+    deleted_ref.offset = 123;
+
+    let mut col = collection(vec![ref_1, deleted_ref]);
+
+    let post = Post {
+        hash: "3".to_string(),
+        message: base64::encode("message"),
+        reply_to: "0".to_string(),
+    };
+
+    col.put_post(post);
+
+    matches!(col.refs[&rc("2")].chunk_settings, None);
+    assert_eq!(col.refs[&rc("2")].length, 0);
 }
