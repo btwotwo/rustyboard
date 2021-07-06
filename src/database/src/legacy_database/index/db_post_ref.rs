@@ -6,18 +6,25 @@ use crate::legacy_database::chunk::ChunkIndex;
 pub type DbPostRefHash = Rc<String>;
 
 #[derive(Debug, PartialEq)]
-pub struct DbPostRef {
+pub struct ChunkSettings {
+    /// Post's chunk index
+    pub chunk_index: ChunkIndex,
+
     /// Offset from the start of the chunk file,
-    /// `None` if chunk is not yet defined, or the post is deleted **and** its contents were replaced by another post's message
-    pub offset: Option<u64>,
+    pub offset: u64,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct DbPostRef {
+    /// Chunk settings. `None` if post was deleted from database and its space was reused,
+    /// so the message of the post is not occupying any space in the chunk.
+    pub chunk_settings: Option<ChunkSettings>,
 
     /// Post length in bytes
     pub length: u64,
 
-    /// Is post deleted from the database
+    /// Is post deleted from the database.
+    ///
+    /// It still may occupy some place in chunk, see `chunk_settings`.
     pub deleted: bool,
-
-    /// Chunk index which has the post message.
-    // `None` if chunk is not yet defined, or the post is deleted **and** its contents were replaced by another post's message.
-    pub chunk_index: Option<ChunkIndex>,
 }
