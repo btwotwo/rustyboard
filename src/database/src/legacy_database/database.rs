@@ -49,9 +49,9 @@ impl LegacyDatabase {
     }
 }
 
-impl Database for LegacyDatabase {
+impl Database<LegacyDatabaseError> for LegacyDatabase {
     // todo add database trait error
-    fn put_post(&mut self, post: Post, allow_reput: bool) /* -> LegacyDatabaseResult<()>*/
+    fn put_post(&mut self, post: Post, allow_reput: bool) -> Result<(), LegacyDatabaseError> /* -> LegacyDatabaseResult<()>*/
     {
         //todo allow_reput
         //todo validate post
