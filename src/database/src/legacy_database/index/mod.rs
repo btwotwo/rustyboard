@@ -54,10 +54,7 @@ impl DbRefCollection {
     }
 
     /// Puts post into the database reference collection.
-    ///
-    /// # Returns
-    /// A reference with an optional `chunk_data` specified, if one of the deleted posts' space was reused.
-    pub fn put_post(&mut self, post: Post) -> &DbPostRef {
+    pub fn put_post(&mut self, post: Post) -> DbPostRefHash {
         let post_bytes = post.get_bytes();
         let mut post_ref = DbPostRef {
             chunk_settings: None,
@@ -83,7 +80,11 @@ impl DbRefCollection {
 
         self.put_ref(&hashes, post_ref);
 
-        &self.refs[&hashes.hash]
+        hashes.hash
+    }
+    
+    pub fn get_ref_mut(&mut self, hash: &DbPostRefHash) -> Option<&mut DbPostRef> {
+        self.refs.get_mut(hash)
     }
 
     /// Puts post reference to the `refs`, `reply_refs`, and `deleted` if post was deleted.
