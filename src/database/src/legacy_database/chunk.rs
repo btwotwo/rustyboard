@@ -31,6 +31,10 @@ pub enum ChunkError {
 }
 pub type ChunkResult<T> = std::result::Result<T, ChunkError>;
 
+//TODO: `write` appends to file instead of writing. That's because we keep file handle opened for the whole lifetime of the chunk struct.
+// What should we do instead? Open file every time we want to write something into it?
+// Maybe create FileFactory which will open the file for us and keep it opened until we request a new mode?
+// Also add tests for the `try_append_data`, check that it returns correct offset
 impl Chunk {
     /// Tries to open existing chunk with specified index.
     /// Returns an error when the chunk with such index does not exist.
