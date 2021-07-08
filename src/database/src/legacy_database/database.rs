@@ -49,13 +49,15 @@ impl LegacyDatabase {
     }
 }
 
-impl Database<LegacyDatabaseError> for LegacyDatabase {
-    // todo add database trait error
-    fn put_post(&mut self, post: Post, allow_reput: bool) -> Result<(), LegacyDatabaseError> /* -> LegacyDatabaseResult<()>*/
+impl Database for LegacyDatabase {
+    type Error = LegacyDatabaseError;
+
+    fn put_post(&mut self, post: Post, allow_reput: bool) -> Result<(), LegacyDatabaseError>
     {
         //todo allow_reput
         //todo validate post
-        let db_post_ref = self.reference.put_post(post);
+        let post_hash = self.reference.put_post(post);
+        
         // let chunk = match db_post_ref.chunk_index {
         //     Some(idx) => Chunk::open(idx).unwrap(),
         //     None => self.last_chunk,
