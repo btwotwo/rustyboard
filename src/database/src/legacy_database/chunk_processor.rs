@@ -1,10 +1,11 @@
-use std::{convert::TryFrom, error::Error};
+use std::error::Error;
 
 use crate::post::Post;
 
-use super::{chunk::{Chunk, ChunkError::{self, ChunkTooLarge}, ChunkIndex}, index::db_post_ref::{ChunkSettings, DbPostRef}};
+use super::{index::db_post_ref::ChunkSettings, chunk::Chunk};
+use super::chunk::ChunkError::{self, ChunkTooLarge};
 use thiserror::Error;
-
+// TODO: Tests
 pub trait ChunkCollectionProcessor {
     type Error: Error;
 
