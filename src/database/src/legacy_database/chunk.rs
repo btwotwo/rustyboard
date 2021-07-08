@@ -135,8 +135,7 @@ impl Chunk {
     /// Appends data to the chunk.
     /// # Errors
     /// If the chunk is too large, will return an error.
-    pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset>
-    {
+    pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
         self.validate_chunk_size()?;
         let pos = self.file.stream_position()?;
         self.file.write_all(data.into())?;

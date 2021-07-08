@@ -82,7 +82,7 @@ impl DbRefCollection {
 
         hashes.hash
     }
-    
+
     pub fn get_ref_mut(&mut self, hash: &DbPostRefHash) -> Option<&mut DbPostRef> {
         self.refs.get_mut(hash)
     }

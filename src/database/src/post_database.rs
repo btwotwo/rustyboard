@@ -1,5 +1,5 @@
-use std::error::Error;
 use crate::post::Post;
+use std::error::Error;
 
 pub trait Database {
     type Error: Error;
