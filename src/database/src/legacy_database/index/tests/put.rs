@@ -76,9 +76,10 @@ fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
         length: 7,
     };
 
-    let db_ref = col.put_post(post);
+    let hash = col.put_post(post);
+    let db_ref = &col.refs[&hash];
 
-    assert_eq!(&expected_db_ref, db_ref);
+    assert_eq!(db_ref, &expected_db_ref);
 }
 
 #[test]
@@ -106,7 +107,8 @@ fn put_post_should_return_free_chunk_name_and_offset_if_free_space_found() {
         length: 7,
         deleted: false,
     };
-    let db_ref = col.put_post(post);
+    let hash = col.put_post(post);
+    let db_ref = &col.refs[&hash];
 
     assert_eq!(db_ref, &expected_db_ref)
 }
