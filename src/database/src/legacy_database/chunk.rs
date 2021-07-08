@@ -10,7 +10,7 @@ pub const CHUNK_EXT: &str = ".db3";
 const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
 
 pub type ChunkIndex = u64;
-
+pub type Offset = u64;
 #[derive(Debug)]
 pub struct Chunk {
     pub index: ChunkIndex,
@@ -131,12 +131,14 @@ impl Chunk {
     /// Appends data to the chunk.
     /// # Errors
     /// If the chunk is too large, will return an error.
-    pub fn try_append_data<I>(&mut self, data: I) -> ChunkResult<()>
-    where
-        I: Into<Vec<u8>>,
+    pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset>
     {
         self.validate_chunk_size()?;
-        self.file.write_all(&data.into())?;
+        let pos = self.file.stream_position()?;
+        self.file.write_all(data.into())?;
+
+        Ok(pos)
+    }
 
         Ok(())
     }
