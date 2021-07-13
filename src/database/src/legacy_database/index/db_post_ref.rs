@@ -1,14 +1,12 @@
 use std::rc::Rc;
 
-use crate::legacy_database::chunk::ChunkIndex;
-
 /// Post hash, immutable
 pub type DbPostRefHash = Rc<String>;
 
 #[derive(Debug, PartialEq)]
 pub struct ChunkSettings {
     /// Post's chunk index
-    pub chunk_index: ChunkIndex,
+    pub chunk_index: crate::legacy_database::chunk::chunk::ChunkIndex,
 
     /// Offset from the start of the chunk file,
     pub offset: u64,

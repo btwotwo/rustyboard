@@ -1,7 +1,7 @@
 use std::io::{self, BufReader};
 
 use super::{
-    chunk::{Chunk, ChunkError, ChunkIndex},
+    chunk::chunk::{Chunk, ChunkError},
     index::{serialized::IndexCollection, DbRefCollection},
 };
 use crate::{post::Post, post_database::Database};

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::legacy_database::chunk::Chunk;
+use crate::legacy_database::chunk::chunk::Chunk;
 
 use super::db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash};
 /// Reference of post messages, which are stored in chunks. This struct is serialized and written into

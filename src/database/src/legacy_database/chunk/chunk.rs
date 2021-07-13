@@ -1,9 +1,11 @@
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io;
 use std::io::ErrorKind::NotFound;
 use std::io::Seek;
 use std::io::Write;
 use std::os::unix::prelude::FileExt;
+use std::path::Path;
 use thiserror::Error;
 
 pub const CHUNK_EXT: &str = ".db3";
@@ -16,8 +18,8 @@ pub type Offset = u64;
 #[derive(Debug)]
 pub struct Chunk {
     pub index: ChunkIndex,
-    file: File,
     max_chunk_size: u64,
+    filename: String,
 }
 #[derive(Debug, Error)]
 pub enum ChunkError {
@@ -32,12 +34,24 @@ pub enum ChunkError {
 }
 pub type ChunkResult<T> = std::result::Result<T, ChunkError>;
 
+enum FileMode {
+    Write,
+    Append,
+}
+
 //TODO: `write` appends to file instead of writing. That's because we keep file handle opened for the whole lifetime of the chunk struct.
 // What should we do instead? Open file every time we want to write something into it?
 // Maybe create FileFactory which will open the file for us and keep it opened until we request a new mode?
 // Also add tests for the `try_append_data`, check that it returns correct offset
 
 impl Chunk {
+    fn new(index: ChunkIndex, max_chunk_size: Option<u64>) -> Self {
+        Chunk {
+            index,
+            max_chunk_size: Self::get_chunk_size(max_chunk_size),
+            filename: format!("{}{}", index, CHUNK_EXT),
+        }
+    }
     /// Tries to open existing chunk with specified index.
     /// Returns an error when the chunk with such index does not exist.
     /// # Arguments
@@ -47,16 +61,9 @@ impl Chunk {
     /// If any IO error is encountered, its variant will be returned. The most common error should be non-existing file.
     /// If chunk with specified index is too big, error will be returned.
     pub fn try_open(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
-        let max_chunk_size = Self::get_chunk_size(max_chunk_size);
-        let filename = Self::get_filename(index);
-        let file = OpenOptions::new().append(true).open(filename)?;
-        let chunk = Chunk {
-            index,
-            file,
-            max_chunk_size,
-        };
+        let chunk = Chunk::new(index, max_chunk_size);
 
-        chunk.validate_chunk_size()?;
+        chunk.validate_chunk_size(FileMode::Append)?;
 
         Ok(chunk)
     }
@@ -69,29 +76,17 @@ impl Chunk {
 
     //TODO: tests
     pub fn open(index: ChunkIndex) -> ChunkResult<Self> {
-        let filename = Self::get_filename(index);
-        let file = OpenOptions::new().append(true).open(filename)?;
+        let chunk = Chunk::new(index, None);
+        chunk.get_file(FileMode::Append)?; //to check if file exists
 
-        Ok(Chunk {
-            file,
-            index,
-            max_chunk_size: MAX_CHUNK_SIZE,
-        })
+        Ok(chunk)
     }
 
     pub fn try_create(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
-        let max_chunk_size = max_chunk_size.unwrap_or(MAX_CHUNK_SIZE);
-        let filename = Self::get_filename(index);
-        let file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(filename)?;
+        let chunk = Chunk::new(index, max_chunk_size);
+        OpenOptions::new().create(true).open(&chunk.filename)?;
 
-        Ok(Chunk {
-            index,
-            file,
-            max_chunk_size,
-        })
+        Ok(chunk)
     }
 
     /// Tries to open already existing chunk, starting from `0.db3`. If chunk is larger than the limit, tries to open the next one.
@@ -136,16 +131,17 @@ impl Chunk {
     /// # Errors
     /// If the chunk is too large, will return an error.
     pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
-        self.validate_chunk_size()?;
-        let pos = self.file.stream_position()?;
-        self.file.write_all(data)?;
+        let mut file = self.validate_chunk_size(FileMode::Append)?;
+        let pos = file.stream_position()?;
+        file.write_all(data)?;
 
         Ok(pos)
     }
 
     /// Writes data into chunk from given offset, does not append, does not validate size
     pub fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()> {
-        self.file.write_all_at(data, offset)?;
+        let file = self.get_file(FileMode::Write)?;
+        file.write_all_at(data, offset)?;
         Ok(())
     }
 
@@ -156,16 +152,21 @@ impl Chunk {
         index_str.parse::<ChunkIndex>().unwrap()
     }
 
-    fn validate_chunk_size(&self) -> ChunkResult<()> {
-        if self.file.metadata()?.len() >= self.max_chunk_size {
+    fn validate_chunk_size(&self, file_mode: FileMode) -> ChunkResult<File> {
+        let file = self.get_file(file_mode)?;
+
+        if file.metadata()?.len() >= self.max_chunk_size {
             Err(ChunkError::ChunkTooLarge)
         } else {
-            Ok(())
+            Ok(file)
         }
     }
 
-    fn get_filename(index: ChunkIndex) -> String {
-        format!("{}{}", index, CHUNK_EXT)
+    fn get_file(&self, mode: FileMode) -> io::Result<File> {
+        match mode {
+            FileMode::Append => OpenOptions::new().create(false).append(true).open(&self.filename),
+            FileMode::Write => OpenOptions::new().create(false).write(true).open(&self.filename),
+        }
     }
 
     fn get_chunk_size(chunk_size: Option<u64>) -> u64 {
@@ -175,22 +176,14 @@ impl Chunk {
 
 #[cfg(test)]
 mod tests {
-    use std::{env::set_current_dir, fs, path::Path};
-    use tempdir::TempDir;
-
-    macro_rules! in_temp_dir {
-        ($block:block) => {
-            let tmpdir = TempDir::new("db").unwrap();
-            set_current_dir(&tmpdir).unwrap();
-
-            $block;
-        };
-    }
+    use std::{fs, path::Path};
 
     use super::*;
+    use crate::in_temp_dir;
     use rusty_fork::rusty_fork_test;
 
     mod try_new {
+
         use super::*;
         rusty_fork_test! {
             #[test]
@@ -242,17 +235,17 @@ mod tests {
     }
     mod append {
         use super::*;
-        rusty_fork_test! {
-            #[test]
-            fn append_chunk_size_exceeded_returns_error() {
-                in_temp_dir!({
-                    let mut chunk = Chunk::try_new(Some(1)).unwrap();
-                    chunk.try_append_data(b"test data").unwrap(); //if we exceed the limit during the first write it's okay
-                    let err = chunk.try_append_data(b"other data").expect_err("Should exceed limit of one byte");
+        #[test]
+        fn append_chunk_size_exceeded_returns_error() {
+            in_temp_dir!({
+                let mut chunk = Chunk::try_new(Some(1)).unwrap();
+                chunk.try_append_data(b"test data").unwrap(); //exceeding the limit during the first write is okay
+                let err = chunk
+                    .try_append_data(b"other data")
+                    .expect_err("Should exceed limit of one byte");
 
-                    assert!(matches!(err, ChunkError::ChunkTooLarge));
-                });
-            }
+                assert!(matches!(err, ChunkError::ChunkTooLarge));
+            });
         }
     }
 

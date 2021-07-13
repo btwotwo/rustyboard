@@ -1,9 +1,11 @@
 use std::error::Error;
 
-use crate::post::Post;
+use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::Post};
 
-use super::chunk::ChunkError::{self, ChunkTooLarge};
-use super::{chunk::Chunk, index::db_post_ref::ChunkSettings};
+use super::chunk::{
+    Chunk,
+    ChunkError::{self, ChunkTooLarge},
+};
 use thiserror::Error;
 // TODO: Tests
 pub trait ChunkCollectionProcessor {
@@ -43,12 +45,14 @@ impl ChunkCollectionProcessor for OnDiskChunkCollectionProcessor {
 
     fn insert(&mut self, post: &Post) -> Result<ChunkSettings, Self::Error> {
         let post_bytes = post.get_bytes();
-        let result = self.last_chunk.try_append_data(&post_bytes);
-        match result {
-            Ok(offset) => Ok(ChunkSettings {
+        let result = self
+            .last_chunk
+            .try_append_data(&post_bytes)
+            .map(|offset| ChunkSettings {
                 chunk_index: self.last_chunk.index,
                 offset,
-            }),
+            });
+        match result {
             Err(err) => match err {
                 ChunkTooLarge => {
                     self.extend_current_chunk()?;
@@ -56,6 +60,7 @@ impl ChunkCollectionProcessor for OnDiskChunkCollectionProcessor {
                 }
                 _ => Err(err.into()),
             },
+            Ok(settings) => Ok(settings),
         }
     }
 
@@ -68,5 +73,25 @@ impl ChunkCollectionProcessor for OnDiskChunkCollectionProcessor {
         let mut chunk = Chunk::open(settings.chunk_index)?;
         chunk.try_write_data(&post_bytes, settings.offset)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::in_temp_dir;
+    use rusty_fork::rusty_fork_test;
+
+    rusty_fork_test! {
+        #[test]
+        fn extend_assigns_chunk_to_self_last_chunk() {
+            in_temp_dir!({
+                let mut prcsr = OnDiskChunkCollectionProcessor {
+                    last_chunk: Chunk::try_new(None).unwrap()
+                };
+                prcsr.extend_current_chunk().unwrap();
+                assert_eq!(prcsr.last_chunk.index, 1)
+            });
+        }
     }
 }

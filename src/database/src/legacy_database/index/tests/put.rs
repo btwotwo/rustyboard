@@ -2,7 +2,7 @@ use pretty_assertions::assert_eq;
 
 use crate::{
     legacy_database::index::{
-        db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
+        db_post_ref::{ChunkSettings, DbPostRef},
         serialized::IndexCollection,
         tests::util::rc,
         DbRefCollection,
