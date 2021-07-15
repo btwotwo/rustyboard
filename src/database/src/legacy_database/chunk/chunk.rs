@@ -31,6 +31,9 @@ pub enum ChunkError {
         #[from]
         source: std::io::Error,
     },
+
+    #[error("Chunk file does not exist")]
+    ChunkFileDoesNotExist,
 }
 pub type ChunkResult<T> = std::result::Result<T, ChunkError>;
 
@@ -62,8 +65,7 @@ impl Chunk {
     /// If chunk with specified index is too big, error will be returned.
     pub fn try_open(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
         let chunk = Chunk::new(index, max_chunk_size);
-
-        chunk.validate_chunk_size(FileMode::Append)?;
+        chunk.validate_chunk_size()?;
 
         Ok(chunk)
     }
@@ -77,15 +79,13 @@ impl Chunk {
     //TODO: tests
     pub fn open(index: ChunkIndex) -> ChunkResult<Self> {
         let chunk = Chunk::new(index, None);
-        chunk.get_file(FileMode::Append)?; //to check if file exists
-
+        chunk.file_exists()?;
         Ok(chunk)
     }
 
     pub fn try_create(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
         let chunk = Chunk::new(index, max_chunk_size);
-        OpenOptions::new().create(true).open(&chunk.filename)?;
-
+        File::create(&chunk.filename)?;
         Ok(chunk)
     }
 
@@ -105,14 +105,14 @@ impl Chunk {
             let chunk = Self::try_open(index, max_chunk_size);
             match chunk {
                 Err(e) => match e {
-                    ChunkError::IoError { ref source } => match source.kind() {
-                        NotFound => return Self::try_create(index, max_chunk_size),
-                        _ => return Err(e),
-                    },
+                    ChunkError::ChunkFileDoesNotExist => {
+                        return Self::try_create(index, max_chunk_size)
+                    }
                     ChunkError::ChunkTooLarge => {
                         index += 1;
                         continue;
                     }
+                    _ => return Err(e),
                 },
                 Ok(val) => return Ok(val),
             };
@@ -131,7 +131,8 @@ impl Chunk {
     /// # Errors
     /// If the chunk is too large, will return an error.
     pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
-        let mut file = self.validate_chunk_size(FileMode::Append)?;
+        self.validate_chunk_size()?;
+        let mut file = self.get_file(FileMode::Append)?;
         let pos = file.stream_position()?;
         file.write_all(data)?;
 
@@ -152,20 +153,29 @@ impl Chunk {
         index_str.parse::<ChunkIndex>().unwrap()
     }
 
-    fn validate_chunk_size(&self, file_mode: FileMode) -> ChunkResult<File> {
-        let file = self.get_file(file_mode)?;
+    fn validate_chunk_size(&self) -> ChunkResult<()> {
+        self.file_exists()?;
+        let file = self.get_file(FileMode::Write)?;
 
         if file.metadata()?.len() >= self.max_chunk_size {
             Err(ChunkError::ChunkTooLarge)
         } else {
-            Ok(file)
+            Ok(())
         }
     }
 
     fn get_file(&self, mode: FileMode) -> io::Result<File> {
         match mode {
-            FileMode::Append => OpenOptions::new().create(false).append(true).open(&self.filename),
-            FileMode::Write => OpenOptions::new().create(false).write(true).open(&self.filename),
+            FileMode::Append => OpenOptions::new().append(true).open(&self.filename),
+            FileMode::Write => OpenOptions::new().write(true).open(&self.filename),
+        }
+    }
+
+    fn file_exists(&self) -> ChunkResult<()> {
+        if Path::new(&self.filename).exists() {
+            Ok(())
+        } else {
+            Err(ChunkError::ChunkFileDoesNotExist)
         }
     }
 
@@ -186,15 +196,16 @@ mod tests {
 
         use super::*;
         rusty_fork_test! {
-            #[test]
-            fn no_chunks_exist_should_create_zero_chunk() {
-                in_temp_dir!({
-                    let chunk = Chunk::try_new(Some(1)).unwrap();
 
-                    assert_eq!(chunk.index, 0);
-                    assert!(exists_index(0))
-                });
-            }
+        #[test]
+        fn no_chunks_exist_should_create_zero_chunk() {
+            in_temp_dir!({
+                let chunk = Chunk::try_new(Some(1)).unwrap();
+
+                assert_eq!(chunk.index, 0);
+                assert!(exists_index(0))
+            });
+        }
         }
 
         rusty_fork_test! {
@@ -245,6 +256,18 @@ mod tests {
                     .expect_err("Should exceed limit of one byte");
 
                 assert!(matches!(err, ChunkError::ChunkTooLarge));
+            });
+        }
+
+        #[test]
+        fn append_appends() {
+            in_temp_dir!({
+                let mut chunk = Chunk::try_new(Some(9999)).unwrap();
+                chunk.try_append_data(b"test").unwrap();
+                chunk.try_append_data(b"_data").unwrap();
+
+                let contents = fs::read_to_string("0.db3").unwrap();
+                assert_eq!(contents, "test_data");
             });
         }
     }
