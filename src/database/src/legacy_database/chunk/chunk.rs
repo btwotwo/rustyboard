@@ -71,8 +71,6 @@ impl Chunk {
     /// **Warning!** This function doesn't check for chunk's size
     /// # Arguments
     /// * `index` - chunk's index ('0.db3', '1.db3'...)
-
-    //TODO: tests
     pub fn open(index: ChunkIndex) -> ChunkResult<Self> {
         let chunk = Chunk::new(index, None);
         chunk.file_exists()?;
@@ -126,6 +124,8 @@ impl Chunk {
     /// Appends data to the chunk.
     /// # Errors
     /// If the chunk is too large, will return an error.
+    /// # Returns
+    /// An offset of the data from the start of file
     pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
         self.validate_chunk_size()?;
         let mut file = self.get_file(FileMode::Append)?;
