@@ -1,3 +1,5 @@
+#[cfg(test)]
+use mockall::automock;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
@@ -15,6 +17,26 @@ const MAX_CHUNK_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1 GB
 
 pub type ChunkIndex = u64;
 pub type Offset = u64;
+
+#[cfg_attr(test, automock)]
+pub trait ChunkTrait {
+    fn create_extended(&self) -> ChunkResult<Self>
+    where
+        Self: Sized;
+
+    fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset>;
+    fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()>;
+
+    fn open(index: ChunkIndex) -> ChunkResult<Self>
+    where
+        Self: Sized;
+
+    fn try_new(max_chunk_size: Option<u64>) -> ChunkResult<Self>
+    where
+        Self: Sized;
+
+    fn index(&self) -> ChunkIndex;
+}
 #[derive(Debug)]
 pub struct Chunk {
     pub index: ChunkIndex,
@@ -42,6 +64,59 @@ enum FileMode {
     Append,
 }
 
+impl ChunkTrait for Chunk {
+    /// Creates a new chunk with incremented index
+    fn create_extended(&self) -> ChunkResult<Self> {
+        let new_index = self.index + 1;
+        let chunk = Self::try_create(new_index, Some(self.max_chunk_size))?;
+
+        Ok(chunk)
+    }
+
+    /// Tries to open existing chunk with specified index.
+    ///
+    /// **Warning!** This function doesn't check for chunk's size
+    /// # Arguments
+    /// * `index` - chunk's index ('0.db3', '1.db3'...)
+    fn open(index: ChunkIndex) -> ChunkResult<Self> {
+        let chunk = Chunk::new(index, None);
+        chunk.file_exists()?;
+        Ok(chunk)
+    }
+
+    /// Tries to open already existing chunk, starting from `0.db3`. If chunk is larger than the limit, tries to open the next one.
+    /// # Errors
+    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
+    fn try_new(max_chunk_size: Option<u64>) -> ChunkResult<Self> {
+        Self::try_new_from(0, max_chunk_size)
+    }
+
+    fn index(&self) -> ChunkIndex {
+        self.index
+    }
+
+    /// Appends data to the chunk.
+    /// # Errors
+    /// If the chunk is too large, will return an error.
+    /// # Returns
+    /// An offset of the data from the start of file
+    fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
+        self.validate_chunk_size()?;
+        let mut file = self.get_file(FileMode::Append)?;
+        let pos = file.seek(SeekFrom::End(0))?;
+        file.write_all(data)?;
+
+        Ok(pos)
+    }
+
+    /// Writes data into chunk from given offset, does not append, does not validate size
+    fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()> {
+        let file = self.get_file(FileMode::Write)?;
+        file.write_all_at(data, offset)?;
+        Ok(())
+    }
+}
+
 impl Chunk {
     fn new(index: ChunkIndex, max_chunk_size: Option<u64>) -> Self {
         Chunk {
@@ -65,28 +140,10 @@ impl Chunk {
         Ok(chunk)
     }
 
-    /// Tries to open existing chunk with specified index.
-    ///
-    /// **Warning!** This function doesn't check for chunk's size
-    /// # Arguments
-    /// * `index` - chunk's index ('0.db3', '1.db3'...)
-    pub fn open(index: ChunkIndex) -> ChunkResult<Self> {
-        let chunk = Chunk::new(index, None);
-        chunk.file_exists()?;
-        Ok(chunk)
-    }
-
     pub fn try_create(index: ChunkIndex, max_chunk_size: Option<u64>) -> ChunkResult<Self> {
         let chunk = Chunk::new(index, max_chunk_size);
         File::create(&chunk.filename)?;
         Ok(chunk)
-    }
-
-    /// Tries to open already existing chunk, starting from `0.db3`. If chunk is larger than the limit, tries to open the next one.
-    /// # Errors
-    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
-    pub fn try_new(max_chunk_size: Option<u64>) -> ChunkResult<Self> {
-        Self::try_new_from(0, max_chunk_size)
     }
 
     /// Tries to open already existing chunk starting from `index`. If chunk is larger than the `max_chunk_size`, tries to open the next one.
@@ -110,35 +167,6 @@ impl Chunk {
                 Ok(val) => return Ok(val),
             };
         }
-    }
-
-    /// Creates a new chunk with incremented index
-    pub fn create_extended(&self) -> ChunkResult<Self> {
-        let new_index = self.index + 1;
-        let chunk = Self::try_create(new_index, Some(self.max_chunk_size))?;
-
-        Ok(chunk)
-    }
-
-    /// Appends data to the chunk.
-    /// # Errors
-    /// If the chunk is too large, will return an error.
-    /// # Returns
-    /// An offset of the data from the start of file
-    pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
-        self.validate_chunk_size()?;
-        let mut file = self.get_file(FileMode::Append)?;
-        let pos = file.seek(SeekFrom::End(0))?;
-        file.write_all(data)?;
-
-        Ok(pos)
-    }
-
-    /// Writes data into chunk from given offset, does not append, does not validate size
-    pub fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()> {
-        let file = self.get_file(FileMode::Write)?;
-        file.write_all_at(data, offset)?;
-        Ok(())
     }
 
     /// Converts chunk name (`0.db3`) to the chunk index
