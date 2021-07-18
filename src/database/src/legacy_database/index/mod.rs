@@ -1,5 +1,6 @@
 pub mod db_post_ref;
 pub mod serialized;
+mod diff;
 use std::{
     collections::{HashMap, HashSet},
     mem,

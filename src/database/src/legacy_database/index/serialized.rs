@@ -68,4 +68,8 @@ impl DbPostRefSerialized {
 
         (hashes, db_post_ref)
     }
+
+    pub fn new(hashes: PostHashes, db_ref: DbPostRef) -> Self {
+        todo!()
+    }
 }
