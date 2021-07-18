@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::{Post, PostMessage}};
+use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::PostMessage};
 
 use super::chunk::{
     ChunkError::{self, ChunkTooLarge},
