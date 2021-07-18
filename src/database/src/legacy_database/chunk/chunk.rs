@@ -1,8 +1,8 @@
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::ErrorKind::NotFound;
 use std::io::Seek;
+use std::io::SeekFrom;
 use std::io::Write;
 use std::os::unix::prelude::FileExt;
 use std::path::Path;
@@ -42,10 +42,6 @@ enum FileMode {
     Append,
 }
 
-//TODO: `write` appends to file instead of writing. That's because we keep file handle opened for the whole lifetime of the chunk struct.
-// What should we do instead? Open file every time we want to write something into it?
-// Maybe create FileFactory which will open the file for us and keep it opened until we request a new mode?
-// Also add tests for the `try_append_data`, check that it returns correct offset
 
 impl Chunk {
     fn new(index: ChunkIndex, max_chunk_size: Option<u64>) -> Self {
@@ -133,7 +129,7 @@ impl Chunk {
     pub fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset> {
         self.validate_chunk_size()?;
         let mut file = self.get_file(FileMode::Append)?;
-        let pos = file.stream_position()?;
+        let pos = file.seek(SeekFrom::End(0))?;
         file.write_all(data)?;
 
         Ok(pos)
@@ -200,7 +196,7 @@ mod tests {
         #[test]
         fn no_chunks_exist_should_create_zero_chunk() {
             in_temp_dir!({
-                let chunk = Chunk::try_new(Some(1)).unwrap();
+                let chunk = some_chunk(Some(1));
 
                 assert_eq!(chunk.index, 0);
                 assert!(exists_index(0))
@@ -213,7 +209,7 @@ mod tests {
             fn chunk_exists_and_exceeds_limit_should_increment_index_and_create_new_chunk() {
                 in_temp_dir!({
                     File::create("0.db3").unwrap().write_all(b"buf").unwrap();
-                    let chunk = Chunk::try_new(Some(1)).unwrap();
+                    let chunk = some_chunk(Some(1));
                     assert_eq!(chunk.index, 1);
                     assert!(exists_index(1))
                 });
@@ -225,7 +221,7 @@ mod tests {
             fn chunk_exists_not_exceeds_limit_should_open_without_creating_new() {
                 in_temp_dir!({
                     File::create("0.db3").unwrap().write_all(b"buf").unwrap();
-                    let chunk = Chunk::try_new(Some(99999)).unwrap();
+                    let chunk = some_chunk(Some(99999));
                     assert_eq!(chunk.index, 0);
                     assert!(exists_index(0))
                 });
@@ -246,30 +242,46 @@ mod tests {
     }
     mod append {
         use super::*;
-        #[test]
-        fn append_chunk_size_exceeded_returns_error() {
-            in_temp_dir!({
-                let mut chunk = Chunk::try_new(Some(1)).unwrap();
-                chunk.try_append_data(b"test data").unwrap(); //exceeding the limit during the first write is okay
-                let err = chunk
-                    .try_append_data(b"other data")
-                    .expect_err("Should exceed limit of one byte");
+        rusty_fork_test! {
+            #[test]
+            fn append_chunk_size_exceeded_returns_error() {
+                in_temp_dir!({
+                    let mut chunk = some_chunk(Some(1));
+                    chunk.try_append_data(b"test data").unwrap(); //exceeding the limit during the first write is okay
+                    let err = chunk
+                        .try_append_data(b"other data")
+                        .expect_err("Should exceed limit of one byte");
 
-                assert!(matches!(err, ChunkError::ChunkTooLarge));
-            });
+                    assert!(matches!(err, ChunkError::ChunkTooLarge));
+                });
+            }
         }
 
-        #[test]
-        fn append_appends() {
-            in_temp_dir!({
-                let mut chunk = Chunk::try_new(Some(9999)).unwrap();
-                chunk.try_append_data(b"test").unwrap();
-                chunk.try_append_data(b"_data").unwrap();
+        rusty_fork_test! {
+            #[test]
+            fn append_appends() {
+                in_temp_dir!({
+                    let mut chunk = some_chunk(Some(9999));
+                    chunk.try_append_data(b"test").unwrap();
+                    chunk.try_append_data(b"_data").unwrap();
 
-                let contents = fs::read_to_string("0.db3").unwrap();
-                assert_eq!(contents, "test_data");
-            });
+                    let contents = fs::read_to_string("0.db3").unwrap();
+                    assert_eq!(contents, "test_data");
+                });
+            }
         }
+        // rusty_fork_test! {
+            #[test]
+            fn append_returns_correct_offset() {
+               in_temp_dir!({
+                    let mut chunk = some_chunk(Some(9999));
+                    chunk.try_append_data(b"test").unwrap();
+                    let offset = chunk.try_append_data(b"test").unwrap();
+
+                    assert_eq!(offset, 4);
+               });
+            }
+        //}
     }
 
     mod extend {
@@ -279,7 +291,7 @@ mod tests {
             #[test]
             fn extend_should_create_new_file() {
                 in_temp_dir!({
-                    let chunk = Chunk::try_new(Some(1)).unwrap();
+                    let chunk = some_chunk(Some(1));
                     let new_chunk = chunk.create_extended().unwrap();
 
                     assert_eq!(new_chunk.index, 1)
@@ -336,5 +348,9 @@ mod tests {
 
     fn exists_index(index: ChunkIndex) -> bool {
         return Path::new(&format!("{}.db3", index)).exists();
+    }
+
+    fn some_chunk(max_chunk_size: Option<u64>) -> Chunk {
+        Chunk::try_new(max_chunk_size).unwrap()
     }
 }
