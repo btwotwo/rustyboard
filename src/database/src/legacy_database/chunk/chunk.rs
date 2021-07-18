@@ -42,7 +42,6 @@ enum FileMode {
     Append,
 }
 
-
 impl Chunk {
     fn new(index: ChunkIndex, max_chunk_size: Option<u64>) -> Self {
         Chunk {
@@ -271,16 +270,16 @@ mod tests {
             }
         }
         // rusty_fork_test! {
-            #[test]
-            fn append_returns_correct_offset() {
-               in_temp_dir!({
-                    let mut chunk = some_chunk(Some(9999));
-                    chunk.try_append_data(b"test").unwrap();
-                    let offset = chunk.try_append_data(b"test").unwrap();
+        #[test]
+        fn append_returns_correct_offset() {
+            in_temp_dir!({
+                let mut chunk = some_chunk(Some(9999));
+                chunk.try_append_data(b"test").unwrap();
+                let offset = chunk.try_append_data(b"test").unwrap();
 
-                    assert_eq!(offset, 4);
-               });
-            }
+                assert_eq!(offset, 4);
+            });
+        }
         //}
     }
 
