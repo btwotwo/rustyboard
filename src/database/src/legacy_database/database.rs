@@ -42,10 +42,12 @@ impl LegacyDatabase {
         let index: IndexCollection = serde_json::from_reader(BufReader::new(index_file))?;
         let reference = DbRefCollection::new(index);
 
-        Ok(LegacyDatabase {
-            reference,
-            last_chunk: Chunk::try_new(None)?,
-        })
+        todo!()
+
+        // Ok(LegacyDatabase {
+        //     reference,
+        //     last_chunk: Chunk::try_new(None)?,
+        // })
     }
 }
 
