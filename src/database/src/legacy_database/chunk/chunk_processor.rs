@@ -3,8 +3,8 @@ use std::error::Error;
 use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::Post};
 
 use super::chunk::{
-    Chunk,
     ChunkError::{self, ChunkTooLarge},
+    ChunkTrait,
 };
 use thiserror::Error;
 // TODO: Tests
@@ -19,8 +19,8 @@ pub trait ChunkCollectionProcessor {
     ) -> Result<(), Self::Error>;
 }
 
-pub struct OnDiskChunkCollectionProcessor {
-    last_chunk: Chunk,
+pub struct OnDiskChunkCollectionProcessor<TChunk: ChunkTrait> {
+    last_chunk: TChunk,
 }
 
 #[derive(Debug, Error)]
@@ -32,7 +32,13 @@ pub enum OnDiskChunkCollectionProcessorError {
     },
 }
 
-impl OnDiskChunkCollectionProcessor {
+impl<TChunk: ChunkTrait> OnDiskChunkCollectionProcessor<TChunk> {
+    pub fn new(max_chunk_size: Option<u64>) -> Result<Self, OnDiskChunkCollectionProcessorError> {
+        Ok(OnDiskChunkCollectionProcessor {
+            last_chunk: TChunk::try_new(max_chunk_size)?,
+        })
+    }
+
     fn extend_current_chunk(&mut self) -> Result<(), OnDiskChunkCollectionProcessorError> {
         let new_chunk = self.last_chunk.create_extended()?;
         self.last_chunk = new_chunk;
@@ -40,16 +46,16 @@ impl OnDiskChunkCollectionProcessor {
     }
 }
 
-impl ChunkCollectionProcessor for OnDiskChunkCollectionProcessor {
+impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProcessor<TChunk> {
     type Error = OnDiskChunkCollectionProcessorError;
 
     fn insert(&mut self, post: &Post) -> Result<ChunkSettings, Self::Error> {
-        let post_bytes = post.get_bytes();
+        let post_bytes = post.get_message_bytes();
         let result = self
             .last_chunk
             .try_append_data(&post_bytes)
             .map(|offset| ChunkSettings {
-                chunk_index: self.last_chunk.index,
+                chunk_index: self.last_chunk.index(),
                 offset,
             });
         match result {
@@ -69,8 +75,8 @@ impl ChunkCollectionProcessor for OnDiskChunkCollectionProcessor {
         settings: &ChunkSettings,
         post: &Post,
     ) -> Result<(), Self::Error> {
-        let post_bytes = post.get_bytes();
-        let mut chunk = Chunk::open(settings.chunk_index)?;
+        let post_bytes = post.get_message_bytes();
+        let mut chunk = TChunk::open(settings.chunk_index)?;
         chunk.try_write_data(&post_bytes, settings.offset)?;
         Ok(())
     }
@@ -79,19 +85,118 @@ impl ChunkCollectionProcessor for OnDiskChunkCollectionProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::in_temp_dir;
-    use rusty_fork::rusty_fork_test;
+    use crate::legacy_database::chunk::chunk::*;
+    use mockall::{automock, mock, predicate::*};
 
-    rusty_fork_test! {
-        #[test]
-        fn extend_assigns_chunk_to_self_last_chunk() {
-            in_temp_dir!({
-                let mut prcsr = OnDiskChunkCollectionProcessor {
-                    last_chunk: Chunk::try_new(None).unwrap()
-                };
-                prcsr.extend_current_chunk().unwrap();
-                assert_eq!(prcsr.last_chunk.index, 1)
-            });
-        }
+    #[test]
+    fn extend_assigns_chunk_to_self_last_chunk() {
+        let mut original = mock();
+        let mut new_chunk = mock();
+
+        new_chunk.expect_index().return_const(1u64);
+
+        original
+            .expect_create_extended()
+            .return_once(move || Ok(new_chunk));
+
+        let mut prcsr = OnDiskChunkCollectionProcessor {
+            last_chunk: original,
+        };
+
+        prcsr.extend_current_chunk().unwrap();
+        assert_eq!(prcsr.last_chunk.index(), 1)
+    }
+
+    #[test]
+    fn insert_when_chunk_too_large_extends_chunk() {
+        let mut original = mock();
+        let mut new = mock();
+        let post = Post::new("".into(), "".into(), "test".into());
+        let new_post = post.clone();
+        let to_insert = post.clone();
+
+        new.expect_try_append_data()
+            .withf_st(move |x| x == new_post.get_message_bytes())
+            .returning(|_| Ok(10));
+        new.expect_index().return_const(1u64);
+
+        original
+            .expect_try_append_data()
+            .withf_st(move |x| x == post.get_message_bytes())
+            .returning(|_| Err(ChunkTooLarge));
+        original
+            .expect_create_extended()
+            .times(1)
+            .return_once(move || Ok(new));
+        original.expect_index().return_const(0u64);
+
+        let mut prcsr = processor(original);
+        prcsr.insert(&to_insert).unwrap();
+    }
+
+    #[test]
+    fn insert_should_return_correct_offset_and_index() {
+        let mut chunk = mock();
+        chunk.expect_try_append_data().returning(|_| Ok(10u64));
+        chunk.expect_index().return_const(0u64);
+
+        let mut prcsr = processor(chunk);
+
+        let res = prcsr
+            .insert(&Post::new(
+                "".to_string(),
+                "".to_string(),
+                "test".to_string(),
+            ))
+            .unwrap();
+        assert_eq!(res.chunk_index, 0);
+        assert_eq!(res.offset, 10);
+    }
+
+    #[test]
+    fn insert_into_existsing_should_write_data() {
+        let ctx = MockChunkTrait::open_context();
+        let offset = 10u64;
+
+        ctx.expect().with(eq(0)).returning(move |_| {
+            let mut chunk = mock();
+            chunk.expect_index().return_const(0u64);
+            chunk
+                .expect_try_write_data()
+                .withf_st(move |x, off| -> bool {
+                    (x == post().get_message_bytes()) && (off == &offset)
+                })
+                .returning(|_, _| Ok(()));
+
+            Ok(chunk)
+        });
+        let chunk = MockChunkTrait::open(0).unwrap();
+
+        let mut prcrsr = processor(chunk);
+        prcrsr
+            .insert_into_existing(
+                &ChunkSettings {
+                    chunk_index: 0,
+                    offset,
+                },
+                &post(),
+            )
+            .unwrap();
+    }
+
+    fn post() -> Post {
+        Post::new(
+            "hash".to_string(),
+            "reply_to".to_string(),
+            "raw_message".to_string(),
+        )
+    }
+
+    fn mock() -> MockChunkTrait {
+        MockChunkTrait::new()
+    }
+
+    fn processor(c: MockChunkTrait) -> OnDiskChunkCollectionProcessor<MockChunkTrait> {
+        OnDiskChunkCollectionProcessor { last_chunk: c }
     }
 }
