@@ -55,7 +55,7 @@ impl DbRefCollection {
 
     /// Puts post into the database reference collection.
     pub fn put_post(&mut self, post: Post) -> DbPostRefHash {
-        let post_bytes = post.get_bytes();
+        let post_bytes = post.get_message_bytes();
         let mut post_ref = DbPostRef {
             chunk_settings: None,
             deleted: false,
