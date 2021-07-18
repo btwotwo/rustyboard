@@ -1,14 +1,11 @@
 use pretty_assertions::assert_eq;
 
-use crate::{
-    legacy_database::index::{
+use crate::{legacy_database::index::{
         db_post_ref::{ChunkSettings, DbPostRef},
         serialized::IndexCollection,
         tests::util::rc,
         DbRefCollection,
-    },
-    post::Post,
-};
+    }, post::{Post, PostMessage}};
 
 use super::util::{collection, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref};
 
@@ -67,7 +64,7 @@ fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
     let post = Post {
         hash: "3".to_string(),
         reply_to: "0".to_string(),
-        message: base64::encode("message"),
+        message: message()
     };
 
     let expected_db_ref = DbPostRef {
@@ -76,7 +73,7 @@ fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
         length: 7,
     };
 
-    let hash = col.put_post(post);
+    let (hash, _) = col.put_post(post);
     let db_ref = &col.refs[&hash];
 
     assert_eq!(db_ref, &expected_db_ref);
@@ -95,7 +92,7 @@ fn put_post_should_return_free_chunk_name_and_offset_if_free_space_found() {
 
     let post = Post {
         hash: "4".to_string(),
-        message: base64::encode("message"),
+        message: message(),
         reply_to: "0".to_string(),
     };
 
@@ -107,7 +104,7 @@ fn put_post_should_return_free_chunk_name_and_offset_if_free_space_found() {
         length: 7,
         deleted: false,
     };
-    let hash = col.put_post(post);
+    let (hash, _) = col.put_post(post);
     let db_ref = &col.refs[&hash];
 
     assert_eq!(db_ref, &expected_db_ref)
@@ -125,7 +122,7 @@ fn put_post_when_inserts_into_free_space_should_remove_chunk_data_from_free_post
 
     let post = Post {
         hash: "3".to_string(),
-        message: base64::encode("message"),
+        message: message(),
         reply_to: "0".to_string(),
     };
 
@@ -133,4 +130,8 @@ fn put_post_when_inserts_into_free_space_should_remove_chunk_data_from_free_post
 
     matches!(col.refs[&rc("2")].chunk_settings, None);
     assert_eq!(col.refs[&rc("2")].length, 0);
+}
+
+fn message() -> PostMessage {
+    PostMessage::new("message".to_string())
 }

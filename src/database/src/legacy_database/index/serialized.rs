@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::legacy_database::chunk::chunk::Chunk;
+use crate::legacy_database::chunk::chunk_name_to_index;
 
 use super::db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash};
 /// Reference of post messages, which are stored in chunks. This struct is serialized and written into
@@ -51,7 +51,7 @@ impl DbPostRefSerialized {
             parent: DbPostRefHash::new(parent),
             hash: DbPostRefHash::new(hash),
         };
-        let chunk_idx = self.chunk_name.map(Chunk::name_to_index);
+        let chunk_idx = self.chunk_name.map(chunk_name_to_index);
         let chunk_settings = match chunk_idx {
             Some(chunk_index) => Some(ChunkSettings {
                 chunk_index,
