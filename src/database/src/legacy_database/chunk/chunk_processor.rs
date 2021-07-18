@@ -7,7 +7,6 @@ use super::chunk::{
     ChunkTrait,
 };
 use thiserror::Error;
-// TODO: Tests
 pub trait ChunkCollectionProcessor {
     type Error: Error;
 

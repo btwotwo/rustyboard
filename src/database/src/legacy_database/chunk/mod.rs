@@ -1,4 +1,3 @@
-//todo make chunk private, work only through chunk_processor
 mod chunk;
 pub mod chunk_processor;
 

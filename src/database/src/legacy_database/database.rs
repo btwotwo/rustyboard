@@ -61,7 +61,7 @@ impl<TProcessor: ChunkCollectionProcessor> Database for LegacyDatabase<TProcesso
             db_ref.chunk_settings = Some(chunk_settings);
         };
 
-        todo!()
+        Ok(())
     }
 
     fn get_post(&self, hash: String) -> Option<Post> {
