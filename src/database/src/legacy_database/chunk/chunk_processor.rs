@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::Post};
+use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::{Post, PostMessage}};
 
 use super::chunk::{
     ChunkError::{self, ChunkTooLarge},
@@ -11,11 +11,11 @@ use thiserror::Error;
 pub trait ChunkCollectionProcessor {
     type Error: Error;
 
-    fn insert(&mut self, post: &Post) -> Result<ChunkSettings, Self::Error>;
+    fn insert(&mut self, post: &PostMessage) -> Result<ChunkSettings, Self::Error>;
     fn insert_into_existing(
         &mut self,
         chunk: &ChunkSettings,
-        post: &Post,
+        post: &PostMessage,
     ) -> Result<(), Self::Error>;
 }
 
@@ -49,8 +49,8 @@ impl<TChunk: ChunkTrait> OnDiskChunkCollectionProcessor<TChunk> {
 impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProcessor<TChunk> {
     type Error = OnDiskChunkCollectionProcessorError;
 
-    fn insert(&mut self, post: &Post) -> Result<ChunkSettings, Self::Error> {
-        let post_bytes = post.get_message_bytes();
+    fn insert(&mut self, post: &PostMessage) -> Result<ChunkSettings, Self::Error> {
+        let post_bytes = post.get_bytes();
         let result = self
             .last_chunk
             .try_append_data(&post_bytes)
@@ -73,9 +73,9 @@ impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProce
     fn insert_into_existing(
         &mut self,
         settings: &ChunkSettings,
-        post: &Post,
+        post: &PostMessage,
     ) -> Result<(), Self::Error> {
-        let post_bytes = post.get_message_bytes();
+        let post_bytes = post.get_bytes();
         let mut chunk = TChunk::open(settings.chunk_index)?;
         chunk.try_write_data(&post_bytes, settings.offset)?;
         Ok(())
@@ -111,18 +111,15 @@ mod tests {
     fn insert_when_chunk_too_large_extends_chunk() {
         let mut original = mock();
         let mut new = mock();
-        let post = Post::new("".into(), "".into(), "test".into());
-        let new_post = post.clone();
-        let to_insert = post.clone();
 
         new.expect_try_append_data()
-            .withf_st(move |x| x == new_post.get_message_bytes())
+            .withf_st(move |x| x == post().get_bytes())
             .returning(|_| Ok(10));
         new.expect_index().return_const(1u64);
 
         original
             .expect_try_append_data()
-            .withf_st(move |x| x == post.get_message_bytes())
+            .withf_st(move |x| x == post().get_bytes())
             .returning(|_| Err(ChunkTooLarge));
         original
             .expect_create_extended()
@@ -131,7 +128,7 @@ mod tests {
         original.expect_index().return_const(0u64);
 
         let mut prcsr = processor(original);
-        prcsr.insert(&to_insert).unwrap();
+        prcsr.insert(&post()).unwrap();
     }
 
     #[test]
@@ -143,11 +140,7 @@ mod tests {
         let mut prcsr = processor(chunk);
 
         let res = prcsr
-            .insert(&Post::new(
-                "".to_string(),
-                "".to_string(),
-                "test".to_string(),
-            ))
+            .insert(&post())
             .unwrap();
         assert_eq!(res.chunk_index, 0);
         assert_eq!(res.offset, 10);
@@ -164,7 +157,7 @@ mod tests {
             chunk
                 .expect_try_write_data()
                 .withf_st(move |x, off| -> bool {
-                    (x == post().get_message_bytes()) && (off == &offset)
+                    (x == post().get_bytes()) && (off == &offset)
                 })
                 .returning(|_, _| Ok(()));
 
@@ -184,12 +177,8 @@ mod tests {
             .unwrap();
     }
 
-    fn post() -> Post {
-        Post::new(
-            "hash".to_string(),
-            "reply_to".to_string(),
-            "raw_message".to_string(),
-        )
+    fn post() -> PostMessage {
+        PostMessage::new("test".to_string())
     }
 
     fn mock() -> MockChunkTrait {

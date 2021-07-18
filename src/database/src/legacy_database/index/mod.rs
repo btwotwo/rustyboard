@@ -7,7 +7,7 @@ use std::{
     usize,
 };
 
-use crate::post::Post;
+use crate::post::{Post, PostMessage};
 
 use self::{
     db_post_ref::{DbPostRef, DbPostRefHash},
@@ -54,7 +54,7 @@ impl DbRefCollection {
     }
 
     /// Puts post into the database reference collection.
-    pub fn put_post(&mut self, post: Post) -> DbPostRefHash {
+    pub fn put_post(&mut self, post: Post) -> (DbPostRefHash, PostMessage) {
         let post_bytes = post.get_message_bytes();
         let mut post_ref = DbPostRef {
             chunk_settings: None,
@@ -80,7 +80,7 @@ impl DbRefCollection {
 
         self.put_ref(&hashes, post_ref);
 
-        hashes.hash
+        (hashes.hash, post.message)
     }
 
     pub fn get_ref_mut(&mut self, hash: &DbPostRefHash) -> Option<&mut DbPostRef> {
