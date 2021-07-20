@@ -2,6 +2,7 @@ use std::io::{self, BufReader};
 
 use super::{chunk::{ChunkError, chunk_processor::ChunkCollectionProcessor}, index::{serialized::IndexCollection, DbRefCollection}};
 use crate::{post::Post, post_database::Database};
+use serde_json::value::Index;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -36,7 +37,7 @@ struct LegacyDatabase<TProcessor: ChunkCollectionProcessor> {
 
 impl<TProcessor: ChunkCollectionProcessor> LegacyDatabase<TProcessor> {
     pub fn new(index_file: std::fs::File, chunk_processor: TProcessor) -> LegacyDatabaseResult<Self> {
-        let index: IndexCollection = serde_json::from_reader(BufReader::new(index_file))?;
+        let index: IndexCollection = IndexCollection::from_file(index_file)?;
         let reference = DbRefCollection::new(index);
 
         Ok(LegacyDatabase {

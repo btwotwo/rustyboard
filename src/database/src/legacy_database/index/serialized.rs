@@ -1,6 +1,8 @@
+use std::{fs::File, io::BufReader};
+
 use serde::{Deserialize, Serialize};
 
-use crate::legacy_database::chunk::chunk_name_to_index;
+use crate::legacy_database::chunk::{chunk_index_to_name, chunk_name_to_index};
 
 use super::db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash};
 /// Reference of post messages, which are stored in chunks. This struct is serialized and written into
@@ -41,6 +43,12 @@ pub struct IndexCollection {
 pub struct PostHashes {
     pub parent: DbPostRefHash,
     pub hash: DbPostRefHash,
+}
+
+impl IndexCollection {
+    pub fn from_file(file: File) -> serde_json::Result<Self> {
+        serde_json::from_reader(BufReader::new(file))
+    }
 }
 
 impl DbPostRefSerialized {
