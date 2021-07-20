@@ -1,6 +1,6 @@
 pub mod db_post_ref;
 pub mod serialized;
-mod diff;
+pub mod diff;
 use std::{
     collections::{HashMap, HashSet},
     mem,
@@ -10,10 +10,7 @@ use std::{
 
 use crate::post::{Post, PostMessage};
 
-use self::{
-    db_post_ref::{DbPostRef, DbPostRefHash},
-    serialized::{IndexCollection, PostHashes},
-};
+use self::{db_post_ref::{DbPostRef, DbPostRefHash}, diff::Diff, serialized::{IndexCollection, PostHashes}};
 
 pub type DbRefHashMap = HashMap<DbPostRefHash, DbPostRef>;
 pub type RepliesHashMap = HashMap<DbPostRefHash, Vec<DbPostRefHash>>;
@@ -21,9 +18,8 @@ pub type OrderedHashes = Vec<DbPostRefHash>;
 pub type DeletedPosts = HashSet<DbPostRefHash>;
 pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
 
-#[derive(Default)]
 /// Post references collection
-pub struct DbRefCollection {
+pub struct DbRefCollection<TDiff: Diff> {
     ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef]
     refs: DbRefHashMap,
 
@@ -38,11 +34,23 @@ pub struct DbRefCollection {
 
     ///Post hashes which are marked as deleted and their space is not used now
     free: FreeSpaceHashes,
+
+    /// Diff object, which saves all operations with posts to reapply them to the database after the application is restarted
+    diff: TDiff
 }
 
-impl DbRefCollection {
+impl<TDiff: Diff> Default for DbRefCollection<TDiff> {
+    fn default() -> Self {
+        DbRefCollection::<TDiff> {
+            diff: TDiff::new(),
+            ..Default::default()
+        }
+    }
+}
+
+impl<TDiff: Diff> DbRefCollection<TDiff> {
     /// Constructs reference collection from raw deserialized database references.
-    pub fn new(index_collection: IndexCollection) -> DbRefCollection {
+    pub fn new(index_collection: IndexCollection) -> DbRefCollection<TDiff> {
         let mut refr = DbRefCollection::default();
         refr.ordered.reserve(index_collection.indexes.len());
 

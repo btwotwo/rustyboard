@@ -1,6 +1,6 @@
 use std::io::{self, BufReader};
 
-use super::{chunk::{ChunkError, chunk_processor::ChunkCollectionProcessor}, index::{serialized::IndexCollection, DbRefCollection}};
+use super::{chunk::{ChunkError, chunk_processor::ChunkCollectionProcessor}, index::{DbRefCollection, diff::Diff, serialized::IndexCollection}};
 use crate::{post::Post, post_database::Database};
 use serde_json::value::Index;
 use thiserror::Error;
@@ -27,16 +27,15 @@ pub enum LegacyDatabaseError {
 }
 
 const INDEX_FILENAME: &str = "index-3.json";
-const DIFF_FILENAME: &str = "diff-3.list";
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
 
-struct LegacyDatabase<TProcessor: ChunkCollectionProcessor> {
-    reference: DbRefCollection,
+struct LegacyDatabase<TProcessor, TDiff> where TProcessor: ChunkCollectionProcessor, TDiff: Diff {
+    reference: DbRefCollection<TDiff>,
     chunk_processor: TProcessor
 }
 
-impl<TProcessor: ChunkCollectionProcessor> LegacyDatabase<TProcessor> {
-    pub fn new(index_file: std::fs::File, chunk_processor: TProcessor) -> LegacyDatabaseResult<Self> {
+impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcessor, TDiff> {
+    pub fn new(index_file: std::fs::File, diff: TDiff, chunk_processor: TProcessor) -> LegacyDatabaseResult<Self> {
         let index: IndexCollection = IndexCollection::from_file(index_file)?;
         let reference = DbRefCollection::new(index);
 
@@ -47,7 +46,7 @@ impl<TProcessor: ChunkCollectionProcessor> LegacyDatabase<TProcessor> {
     }
 }
 
-impl<TProcessor: ChunkCollectionProcessor> Database for LegacyDatabase<TProcessor> where LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>{
+impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> Database for LegacyDatabase<TProcessor, TDiff> where LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>{
     type Error = LegacyDatabaseError;
 
     fn put_post(&mut self, post: Post, allow_reput: bool) -> Result<(), LegacyDatabaseError> {
