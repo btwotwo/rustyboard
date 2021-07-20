@@ -122,7 +122,7 @@ impl Chunk {
         Chunk {
             index,
             max_chunk_size: Self::get_chunk_size(max_chunk_size),
-            filename: format!("{}{}", index, CHUNK_EXT),
+            filename: Self::index_to_name(index)
         }
     }
     /// Tries to open existing chunk with specified index.
@@ -174,6 +174,10 @@ impl Chunk {
         let index_str = chunk_name.replace(CHUNK_EXT, "");
 
         index_str.parse::<ChunkIndex>().unwrap()
+    }
+
+    pub fn index_to_name(chunk_index: ChunkIndex) -> String {
+        format!("{}{}", chunk_index, CHUNK_EXT)
     }
 
     fn validate_chunk_size(&self) -> ChunkResult<()> {
