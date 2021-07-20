@@ -1,8 +1,4 @@
-use crate::legacy_database::index::{
-    serialized::IndexCollection,
-    tests::util::{rc, some_raw_ref, some_ref},
-    DbRefCollection,
-};
+use crate::legacy_database::index::{DbRefCollection, diff::DiffFile, serialized::IndexCollection, tests::util::{rc, some_raw_ref, some_ref}};
 
 #[test]
 fn when_passed_index_collection_should_create_valid_reference() {
@@ -14,7 +10,7 @@ fn when_passed_index_collection_should_create_valid_reference() {
         indexes: vec![ref_1, ref_2, ref_3],
     };
 
-    let reference = DbRefCollection::new(collection);
+    let reference = DbRefCollection::<DiffFile>::new(collection);
     let rcs = vec![rc("1"), rc("2"), rc("3")];
 
     assert_eq!(reference.ordered, rcs);
@@ -40,7 +36,7 @@ fn when_contains_deleted_post_should_add_to_deleted() {
         indexes: vec![ref1, ref2],
     };
 
-    let reference = DbRefCollection::new(collection);
+    let reference = DbRefCollection::<DiffFile>::new(collection);
     let deleted_rc = rc("2");
 
     assert_eq!(reference.deleted.len(), 1);
@@ -61,7 +57,7 @@ fn when_there_is_unused_space_should_add_post_hash_to_free() {
         indexes: vec![ref1, ref2, ref3],
     };
 
-    let reference = DbRefCollection::new(coll);
+    let reference = DbRefCollection::<DiffFile>::new(coll);
     let free_rc = rc("2");
 
     assert_eq!(reference.free.len(), 1);
