@@ -1,8 +1,8 @@
 mod chunk;
 pub mod chunk_processor;
 
-pub use chunk::ChunkIndex;
 pub use chunk::ChunkError;
+pub use chunk::ChunkIndex;
 
 use self::chunk::Chunk;
 
