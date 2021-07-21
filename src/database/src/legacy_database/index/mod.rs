@@ -1,6 +1,6 @@
 pub mod db_post_ref;
-pub mod serialized;
 pub mod diff;
+pub mod serialized;
 use std::{
     collections::{HashMap, HashSet},
     mem,
@@ -10,7 +10,11 @@ use std::{
 
 use crate::post::{Post, PostMessage};
 
-use self::{db_post_ref::{DbPostRef, DbPostRefHash}, diff::Diff, serialized::{IndexCollection, PostHashes}};
+use self::{
+    db_post_ref::{DbPostRef, DbPostRefHash},
+    diff::{Diff, DiffFileError},
+    serialized::{IndexCollection, PostHashes},
+};
 
 pub type DbRefHashMap = HashMap<DbPostRefHash, DbPostRef>;
 pub type RepliesHashMap = HashMap<DbPostRefHash, Vec<DbPostRefHash>>;
@@ -19,7 +23,8 @@ pub type DeletedPosts = HashSet<DbPostRefHash>;
 pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
 
 /// Post references collection
-pub struct DbRefCollection<TDiff: Diff> {
+#[derive(Default)]
+pub struct DbRefCollection {
     ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef]
     refs: DbRefHashMap,
 
@@ -34,23 +39,11 @@ pub struct DbRefCollection<TDiff: Diff> {
 
     ///Post hashes which are marked as deleted and their space is not used now
     free: FreeSpaceHashes,
-
-    /// Diff object, which saves all operations with posts to reapply them to the database after the application is restarted
-    diff: TDiff
 }
 
-impl<TDiff: Diff> Default for DbRefCollection<TDiff> {
-    fn default() -> Self {
-        DbRefCollection::<TDiff> {
-            diff: TDiff::new(),
-            ..Default::default()
-        }
-    }
-}
-
-impl<TDiff: Diff> DbRefCollection<TDiff> {
+impl DbRefCollection {
     /// Constructs reference collection from raw deserialized database references.
-    pub fn new(index_collection: IndexCollection) -> DbRefCollection<TDiff> {
+    pub fn new(index_collection: IndexCollection, diff: &impl Diff) -> Result<Self, DiffFileError> {
         let mut refr = DbRefCollection::default();
         refr.ordered.reserve(index_collection.indexes.len());
 
@@ -59,7 +52,8 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
             refr.put_ref(&raw_hashes, data);
         }
 
-        refr
+        diff.apply_diff(&mut refr)?;
+        Ok(refr)
     }
 
     /// Puts post into the database reference collection.
@@ -100,6 +94,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     ///
     /// If post was deleted, checks for the
     fn put_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
+        // todo we need to put diff refs into ref collection
         let hash_rc = &hashes.hash;
         let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
 
@@ -111,7 +106,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
             }
         }
 
-        self.refs.insert(hash_rc.clone(), post);
+        let is_new = self.refs.insert(hash_rc.clone(), post);
 
         let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
 
