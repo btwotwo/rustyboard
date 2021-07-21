@@ -79,8 +79,11 @@ impl DbPostRefSerialized {
 
     pub fn new(hashes: PostHashes, db_ref: DbPostRef) -> Self {
         let (chunk_name, offset) = match db_ref.chunk_settings {
-            Some(settings) => (Some(chunk_index_to_name(settings.chunk_index)), settings.offset),
-            None => (None, 0)
+            Some(settings) => (
+                Some(chunk_index_to_name(settings.chunk_index)),
+                settings.offset,
+            ),
+            None => (None, 0),
         };
 
         DbPostRefSerialized {
@@ -89,11 +92,15 @@ impl DbPostRefSerialized {
             hash: hashes.hash.to_string(),
             reply_to: hashes.parent.to_string(),
             length: db_ref.length,
-            offset
+            offset,
         }
     }
 
     pub fn serialize(&self) -> serde_json::Result<String> {
         serde_json::to_string(&self)
+    }
+
+    pub fn deserialize(source: &str) -> serde_json::Result<Self> {
+        serde_json::from_str(source)
     }
 }
