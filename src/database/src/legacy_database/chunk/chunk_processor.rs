@@ -138,9 +138,7 @@ mod tests {
 
         let mut prcsr = processor(chunk);
 
-        let res = prcsr
-            .insert(&post())
-            .unwrap();
+        let res = prcsr.insert(&post()).unwrap();
         assert_eq!(res.chunk_index, 0);
         assert_eq!(res.offset, 10);
     }
@@ -155,9 +153,7 @@ mod tests {
             chunk.expect_index().return_const(0u64);
             chunk
                 .expect_try_write_data()
-                .withf_st(move |x, off| -> bool {
-                    (x == post().get_bytes()) && (off == &offset)
-                })
+                .withf_st(move |x, off| -> bool { (x == post().get_bytes()) && (off == &offset) })
                 .returning(|_, _| Ok(()));
 
             Ok(chunk)

@@ -122,7 +122,7 @@ impl Chunk {
         Chunk {
             index,
             max_chunk_size: Self::get_chunk_size(max_chunk_size),
-            filename: Self::index_to_name(index)
+            filename: Self::index_to_name(index),
         }
     }
     /// Tries to open existing chunk with specified index.

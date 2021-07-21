@@ -1,6 +1,13 @@
 use std::io::{self, BufReader};
 
-use super::{chunk::{ChunkError, chunk_processor::ChunkCollectionProcessor}, index::{DbRefCollection, diff::Diff, serialized::IndexCollection}};
+use super::{
+    chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
+    index::{
+        diff::{Diff, DiffFileError},
+        serialized::IndexCollection,
+        DbRefCollection,
+    },
+};
 use crate::{post::Post, post_database::Database};
 use serde_json::value::Index;
 use thiserror::Error;
@@ -24,29 +31,46 @@ pub enum LegacyDatabaseError {
         #[from]
         source: serde_json::Error,
     },
+
+    #[error("Error processing diff")]
+    DiffError(#[from] DiffFileError),
 }
 
 const INDEX_FILENAME: &str = "index-3.json";
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
 
-struct LegacyDatabase<TProcessor, TDiff> where TProcessor: ChunkCollectionProcessor, TDiff: Diff {
-    reference: DbRefCollection<TDiff>,
-    chunk_processor: TProcessor
+struct LegacyDatabase<TProcessor, TDiff>
+where
+    TProcessor: ChunkCollectionProcessor,
+    TDiff: Diff,
+{
+    reference: DbRefCollection,
+    chunk_processor: TProcessor,
+    diff: TDiff,
 }
 
 impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcessor, TDiff> {
-    pub fn new(index_file: std::fs::File, diff: TDiff, chunk_processor: TProcessor) -> LegacyDatabaseResult<Self> {
+    pub fn new(
+        index_file: std::fs::File,
+        diff: TDiff,
+        chunk_processor: TProcessor,
+    ) -> LegacyDatabaseResult<Self> {
         let index: IndexCollection = IndexCollection::from_file(index_file)?;
-        let reference = DbRefCollection::new(index);
+        let reference = DbRefCollection::new(index, &diff)?;
 
         Ok(LegacyDatabase {
             reference,
-            chunk_processor
+            chunk_processor,
+            diff,
         })
     }
 }
 
-impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> Database for LegacyDatabase<TProcessor, TDiff> where LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>{
+impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> Database
+    for LegacyDatabase<TProcessor, TDiff>
+where
+    LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>,
+{
     type Error = LegacyDatabaseError;
 
     fn put_post(&mut self, post: Post, allow_reput: bool) -> Result<(), LegacyDatabaseError> {
@@ -55,7 +79,8 @@ impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> Database for LegacyDatab
         let (hash, message) = self.reference.put_post(post);
         let db_ref = self.reference.get_ref_mut(&hash).unwrap();
         if let Some(settings) = &db_ref.chunk_settings {
-            self.chunk_processor.insert_into_existing(&settings,&message)?;
+            self.chunk_processor
+                .insert_into_existing(&settings, &message)?;
         } else {
             let chunk_settings = self.chunk_processor.insert(&message)?;
             db_ref.chunk_settings = Some(chunk_settings);
