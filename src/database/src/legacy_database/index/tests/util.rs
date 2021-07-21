@@ -1,6 +1,11 @@
 use std::rc::Rc;
 
-use crate::legacy_database::index::{DbRefCollection, db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash}, diff::DiffFile, serialized::{DbPostRefSerialized, IndexCollection}};
+use crate::legacy_database::index::{
+    db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
+    diff::{Diff, DiffFile},
+    serialized::{DbPostRefSerialized, IndexCollection},
+    DbRefCollection,
+};
 
 pub fn rc(hash: &str) -> DbPostRefHash {
     Rc::new(hash.to_string())
@@ -52,6 +57,6 @@ pub fn some_raw_removed_ref(hash: &str, parent: &str) -> DbPostRefSerialized {
     }
 }
 
-pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection<DiffFile> {
-    DbRefCollection::new(IndexCollection { indexes: refs })
+pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection {
+    DbRefCollection::new(IndexCollection { indexes: refs }, &DiffFile).unwrap()
 }

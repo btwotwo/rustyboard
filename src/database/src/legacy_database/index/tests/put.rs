@@ -1,6 +1,12 @@
 use pretty_assertions::assert_eq;
 
-use crate::{legacy_database::index::{DbRefCollection, db_post_ref::{ChunkSettings, DbPostRef}, diff::{Diff, DiffFile}, serialized::IndexCollection, tests::util::rc}, post::{Post, PostMessage}};
+use crate::{
+    legacy_database::index::{
+        db_post_ref::{ChunkSettings, DbPostRef},
+        tests::util::rc,
+    },
+    post::{Post, PostMessage},
+};
 
 use super::util::{collection, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref};
 
@@ -13,9 +19,7 @@ fn find_free_ref_should_not_return_when_chunk_settings_are_none() {
     deleted_ref.deleted = true;
     deleted_ref.chunk_name = None;
 
-    let collection = DbRefCollection::<DiffFile>::new(IndexCollection {
-        indexes: vec![ref_1, ref_2, deleted_ref],
-    });
+    let collection = collection(vec![ref_1, ref_2, deleted_ref]);
 
     let free_ref_hash = collection.find_free_ref(&[1, 2, 3, 4, 5]);
 
@@ -59,7 +63,7 @@ fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
     let post = Post {
         hash: "3".to_string(),
         reply_to: "0".to_string(),
-        message: message()
+        message: message(),
     };
 
     let expected_db_ref = DbPostRef {
