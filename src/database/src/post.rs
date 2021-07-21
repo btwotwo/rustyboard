@@ -3,7 +3,7 @@ pub struct Post {
     pub hash: String,
     pub reply_to: String,
     /// Base64 encoded post message
-    pub message: PostMessage
+    pub message: PostMessage,
 }
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl Post {
         Self {
             hash,
             reply_to,
-            message: PostMessage::new(raw_message)
+            message: PostMessage::new(raw_message),
         }
     }
 
