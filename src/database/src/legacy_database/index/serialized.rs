@@ -77,8 +77,8 @@ impl DbPostRefSerialized {
         (hashes, db_post_ref)
     }
 
-    pub fn new(hashes: PostHashes, db_ref: DbPostRef) -> Self {
-        let (chunk_name, offset) = match db_ref.chunk_settings {
+    pub fn new(hashes: &PostHashes, db_ref: &DbPostRef) -> Self {
+        let (chunk_name, offset) = match &db_ref.chunk_settings {
             Some(settings) => (
                 Some(chunk_index_to_name(settings.chunk_index)),
                 settings.offset,
