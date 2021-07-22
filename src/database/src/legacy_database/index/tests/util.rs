@@ -1,11 +1,22 @@
 use std::rc::Rc;
 
-use crate::legacy_database::index::{
-    db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
-    diff::{Diff, DiffFile},
-    serialized::{DbPostRefSerialized, IndexCollection},
-    DbRefCollection,
-};
+use crate::legacy_database::{self, index::{DbRefCollection, db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash}, diff::Diff, serialized::{DbPostRefSerialized, IndexCollection, PostHashes}}};
+
+
+pub struct DummyDiff;
+impl Diff for DummyDiff {
+    fn append(
+        &mut self,
+        _hashes: &legacy_database::index::serialized::PostHashes,
+        _db_ref: &DbPostRef,
+    ) -> legacy_database::index::diff::DiffResult<()> {
+        Ok(())
+    }
+
+    fn drain(&mut self) -> legacy_database::index::diff::DiffResult<Vec<DbPostRefSerialized>> {
+        Ok(vec![])
+    }
+}
 
 pub fn rc(hash: &str) -> DbPostRefHash {
     Rc::new(hash.to_string())
@@ -57,6 +68,6 @@ pub fn some_raw_removed_ref(hash: &str, parent: &str) -> DbPostRefSerialized {
     }
 }
 
-pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection {
-    DbRefCollection::new(IndexCollection { indexes: refs }, &DiffFile).unwrap()
+pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection<DummyDiff> {
+    DbRefCollection::new(IndexCollection { indexes: refs }, DummyDiff).unwrap()
 }
