@@ -44,24 +44,23 @@ where
     TProcessor: ChunkCollectionProcessor,
     TDiff: Diff,
 {
-    reference: DbRefCollection,
+    reference: DbRefCollection<TDiff>,
     chunk_processor: TProcessor,
-    diff: TDiff,
 }
 
 impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcessor, TDiff> {
     pub fn new(
         index_file: std::fs::File,
-        diff: TDiff,
         chunk_processor: TProcessor,
+        diff: TDiff
     ) -> LegacyDatabaseResult<Self> {
         let index: IndexCollection = IndexCollection::from_file(index_file)?;
-        let reference = DbRefCollection::new(index, &diff)?;
+        let reference = DbRefCollection::new(index, diff)?;
+
 
         Ok(LegacyDatabase {
             reference,
             chunk_processor,
-            diff,
         })
     }
 }

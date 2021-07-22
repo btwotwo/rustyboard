@@ -1,12 +1,7 @@
 pub mod db_post_ref;
 pub mod diff;
 pub mod serialized;
-use std::{
-    collections::{HashMap, HashSet},
-    mem,
-    rc::Rc,
-    usize,
-};
+use std::{collections::{HashMap, HashSet}, mem, rc::Rc, usize};
 
 use crate::post::{Post, PostMessage};
 
@@ -23,8 +18,7 @@ pub type DeletedPosts = HashSet<DbPostRefHash>;
 pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
 
 /// Post references collection
-#[derive(Default)]
-pub struct DbRefCollection {
+pub struct DbRefCollection<TDiff: Diff> {
     ///[HashMap] of post references. `Key`is hash of the post, and `value` is [DbPostRef]
     refs: DbRefHashMap,
 
@@ -39,12 +33,21 @@ pub struct DbRefCollection {
 
     ///Post hashes which are marked as deleted and their space is not used now
     free: FreeSpaceHashes,
+
+    diff: TDiff
 }
 
-impl DbRefCollection {
+impl<TDiff: Diff> DbRefCollection<TDiff> {
     /// Constructs reference collection from raw deserialized database references.
-    pub fn new(index_collection: IndexCollection, diff: &impl Diff) -> Result<Self, DiffFileError> {
-        let mut refr = DbRefCollection::default();
+    pub fn new(index_collection: IndexCollection, diff: TDiff) -> Result<Self, DiffFileError> {
+        let mut refr = DbRefCollection {
+            diff,
+            deleted: Default::default(),
+            free: Default::default(),
+            ordered: Default::default(),
+            refs: Default::default(),
+            reply_refs: Default::default()
+        };
         refr.ordered.reserve(index_collection.indexes.len());
 
         for ser_post in index_collection.indexes {
@@ -52,8 +55,20 @@ impl DbRefCollection {
             refr.put_ref(&raw_hashes, data);
         }
 
-        diff.apply_diff(&mut refr)?;
+        refr.apply_diff()?;
+
         Ok(refr)
+    }
+
+    pub fn apply_diff(&mut self) -> Result<(), DiffFileError> {
+        let values = self.diff.drain()?;
+
+        for to_update in values {
+            let (raw_hashes, data) = to_update.split();
+            self.put_ref(&raw_hashes, data);
+        }
+
+        Ok(())
     }
 
     /// Puts post into the database reference collection.
@@ -103,15 +118,22 @@ impl DbRefCollection {
 
             if post.length > 0 {
                 self.free.insert(hash_rc.clone());
+            } else if post.length == 0 {
+                self.free.remove(hash_rc.into());
             }
+
+        } else {
+            self.deleted.remove(hash_rc.into());
+            self.free.remove(hash_rc.into());
         }
 
-        let is_new = self.refs.insert(hash_rc.clone(), post);
+        let is_new = self.refs.insert(hash_rc.clone(), post).is_none();
 
         let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
-
-        parent_post_replies.push(hash_rc.clone());
-        self.ordered.push(hash_rc.clone());
+        if is_new {
+            parent_post_replies.push(hash_rc.clone());
+            self.ordered.push(hash_rc.clone());
+        }
     }
 
     // Todo reuse the rest of free space
