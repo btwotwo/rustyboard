@@ -65,7 +65,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     fn apply_serialized_posts(&mut self, posts: Vec<DbPostRefSerialized>) {
         for ser_post in posts {
             let (raw_hashes, data) = ser_post.split();
-            self.upsert_ref(&raw_hashes, data);
+            self.upsert_without_diff(&raw_hashes, data);
         }
     }
 
@@ -86,7 +86,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
 
         self.put_ref_into_free_chunk(&mut post_ref, &post_bytes);
 
-        self.upsert_ref(&hashes, post_ref);
+        self.upsert_with_diff(&hashes, post_ref);
 
         (hashes.hash, post.message)
     }
@@ -116,12 +116,32 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         }
     }
 
+    fn upsert_without_diff(&mut self, hashes: &PostHashes, post: DbPostRef) {
+        self.upsert_ref(hashes, post)
+    }
+
+    fn upsert_with_diff(&mut self, hashes: &PostHashes, post: DbPostRef) {
+        let is_presented = self.refs.contains_key(&hashes.hash);
+        if is_presented {
+            self.diff.append(&hashes, &post);
+        }
+
+        self.upsert_ref(hashes, post)
+    }
+
     /// Puts post reference to the `refs`, `reply_refs`, and `deleted` if post was deleted.
     /// If ref is already in the collection, updates it and updates diff
     fn upsert_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
         // todo we need to put diff refs into ref collection
         let hash_rc = &hashes.hash;
         let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
+
+        let is_presented = self.refs.contains_key(hash_rc);
+        let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
+        if !is_presented {
+            parent_post_replies.push(hash_rc.clone());
+            self.ordered.push(hash_rc.clone());
+        }
 
         if post.deleted {
             self.deleted.insert(hash_rc.clone());
@@ -134,15 +154,6 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         } else {
             self.deleted.remove(hash_rc);
             self.free.remove(hash_rc);
-        }
-
-        let is_presented = self.refs.contains_key(hash_rc);
-        let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
-        if is_presented {
-            self.diff.append(&hashes, &post);
-        } else {
-            parent_post_replies.push(hash_rc.clone());
-            self.ordered.push(hash_rc.clone());
         }
 
         self.refs.insert(hash_rc.clone(), post);
