@@ -1,14 +1,19 @@
 pub mod db_post_ref;
 pub mod diff;
 pub mod serialized;
-use std::{collections::{HashMap, HashSet}, mem, rc::Rc, usize};
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
+    rc::Rc,
+    usize,
+};
 
 use crate::post::{Post, PostMessage};
 
 use self::{
     db_post_ref::{DbPostRef, DbPostRefHash},
     diff::{Diff, DiffFileError},
-    serialized::{IndexCollection, PostHashes},
+    serialized::{DbPostRefSerialized, IndexCollection, PostHashes},
 };
 
 pub type DbRefHashMap = HashMap<DbPostRefHash, DbPostRef>;
@@ -34,69 +39,54 @@ pub struct DbRefCollection<TDiff: Diff> {
     ///Post hashes which are marked as deleted and their space is not used now
     free: FreeSpaceHashes,
 
-    diff: TDiff
+    diff: TDiff,
 }
 
 impl<TDiff: Diff> DbRefCollection<TDiff> {
     /// Constructs reference collection from raw deserialized database references.
-    pub fn new(index_collection: IndexCollection, diff: TDiff) -> Result<Self, DiffFileError> {
+    pub fn new(index_collection: IndexCollection) -> Result<Self, DiffFileError> {
+        let (diff, diff_collection) = TDiff::drain()?;
         let mut refr = DbRefCollection {
             diff,
             deleted: Default::default(),
             free: Default::default(),
             ordered: Default::default(),
             refs: Default::default(),
-            reply_refs: Default::default()
+            reply_refs: Default::default(),
         };
         refr.ordered.reserve(index_collection.indexes.len());
 
-        for ser_post in index_collection.indexes {
-            let (raw_hashes, data) = ser_post.split();
-            refr.put_ref(&raw_hashes, data);
-        }
-
-        refr.apply_diff()?;
+        refr.apply_serialized_posts(index_collection.indexes);
+        refr.apply_serialized_posts(diff_collection);
 
         Ok(refr)
     }
 
-    pub fn apply_diff(&mut self) -> Result<(), DiffFileError> {
-        let values = self.diff.drain()?;
-
-        for to_update in values {
-            let (raw_hashes, data) = to_update.split();
-            self.put_ref(&raw_hashes, data);
+    fn apply_serialized_posts(&mut self, posts: Vec<DbPostRefSerialized>) {
+        for ser_post in posts {
+            let (raw_hashes, data) = ser_post.split();
+            self.upsert_ref(&raw_hashes, data);
         }
-
-        Ok(())
     }
 
     /// Puts post into the database reference collection.
     pub fn put_post(&mut self, post: Post) -> (DbPostRefHash, PostMessage) {
         let post_bytes = post.get_message_bytes();
-        let mut post_ref = DbPostRef {
-            chunk_settings: None,
-            deleted: false,
-            length: post_bytes.len() as u64,
-        };
-
-        let opt_hash = self.find_free_ref(&post_bytes);
-        if let Some(free_ref_hash) = opt_hash {
-            let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
-            let free_chunk_settings = mem::replace(&mut free_ref.chunk_settings, None);
-            post_ref.chunk_settings = free_chunk_settings;
-            free_ref.length = 0;
-
-            self.free.remove(&free_ref_hash);
-            //todo: Update diff file!
-        }
-
         let hashes = PostHashes {
             hash: DbPostRefHash::new(post.hash),
             parent: DbPostRefHash::new(post.reply_to),
         };
 
-        self.put_ref(&hashes, post_ref);
+        let mut post_ref = DbPostRef {
+            chunk_settings: None,
+            deleted: false,
+            length: post_bytes.len() as u64,
+            parent_hash: hashes.parent.clone(),
+        };
+
+        self.put_ref_into_free_chunk(&mut post_ref, &post_bytes);
+
+        self.upsert_ref(&hashes, post_ref);
 
         (hashes.hash, post.message)
     }
@@ -105,10 +95,30 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         self.refs.get_mut(hash)
     }
 
+    fn put_ref_into_free_chunk(&mut self, post_ref: &mut DbPostRef, post_bytes: &[u8]) {
+        let opt_hash = self.find_free_ref(post_bytes);
+        if let Some(free_ref_hash) = opt_hash {
+            let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
+            let free_chunk_settings = mem::replace(&mut free_ref.chunk_settings, None);
+            post_ref.chunk_settings = free_chunk_settings;
+            free_ref.length = 0;
+
+            self.free.remove(&free_ref_hash);
+            self.diff
+                .append(
+                    &PostHashes {
+                        hash: free_ref_hash,
+                        parent: free_ref.parent_hash.clone(),
+                    },
+                    &free_ref,
+                )
+                .unwrap();
+        }
+    }
+
     /// Puts post reference to the `refs`, `reply_refs`, and `deleted` if post was deleted.
-    ///
-    /// If post was deleted, checks for the
-    fn put_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
+    /// If ref is already in the collection, updates it and updates diff
+    fn upsert_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
         // todo we need to put diff refs into ref collection
         let hash_rc = &hashes.hash;
         let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
@@ -119,21 +129,23 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
             if post.length > 0 {
                 self.free.insert(hash_rc.clone());
             } else if post.length == 0 {
-                self.free.remove(hash_rc.into());
+                self.free.remove(hash_rc);
             }
-
         } else {
-            self.deleted.remove(hash_rc.into());
-            self.free.remove(hash_rc.into());
+            self.deleted.remove(hash_rc);
+            self.free.remove(hash_rc);
         }
 
-        let is_new = self.refs.insert(hash_rc.clone(), post).is_none();
-
+        let is_presented = self.refs.contains_key(hash_rc);
         let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
-        if is_new {
+        if is_presented {
+            self.diff.append(&hashes, &post);
+        } else {
             parent_post_replies.push(hash_rc.clone());
             self.ordered.push(hash_rc.clone());
         }
+
+        self.refs.insert(hash_rc.clone(), post);
     }
 
     // Todo reuse the rest of free space
