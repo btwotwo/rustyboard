@@ -1,7 +1,14 @@
 use std::rc::Rc;
 
-use crate::legacy_database::{self, index::{DbRefCollection, db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash}, diff::Diff, serialized::{DbPostRefSerialized, IndexCollection, PostHashes}}};
-
+use crate::legacy_database::{
+    self,
+    index::{
+        db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
+        diff::Diff,
+        serialized::{DbPostRefSerialized, IndexCollection, PostHashes},
+        DbRefCollection,
+    },
+};
 
 pub struct DummyDiff;
 impl Diff for DummyDiff {
@@ -13,8 +20,8 @@ impl Diff for DummyDiff {
         Ok(())
     }
 
-    fn drain(&mut self) -> legacy_database::index::diff::DiffResult<Vec<DbPostRefSerialized>> {
-        Ok(vec![])
+    fn drain() -> legacy_database::index::diff::DiffResult<(Self, Vec<DbPostRefSerialized>)> {
+        Ok((DummyDiff, Vec::new()))
     }
 }
 
@@ -22,7 +29,7 @@ pub fn rc(hash: &str) -> DbPostRefHash {
     Rc::new(hash.to_string())
 }
 
-pub fn some_ref(length: u64) -> DbPostRef {
+pub fn some_ref(length: u64, parent: &str) -> DbPostRef {
     DbPostRef {
         chunk_settings: Some(ChunkSettings {
             chunk_index: 0,
@@ -30,6 +37,7 @@ pub fn some_ref(length: u64) -> DbPostRef {
         }),
         deleted: false,
         length,
+        parent_hash: rc(parent),
     }
 }
 
@@ -69,5 +77,5 @@ pub fn some_raw_removed_ref(hash: &str, parent: &str) -> DbPostRefSerialized {
 }
 
 pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection<DummyDiff> {
-    DbRefCollection::new(IndexCollection { indexes: refs }, DummyDiff).unwrap()
+    DbRefCollection::new(IndexCollection { indexes: refs }).unwrap()
 }

@@ -1,9 +1,4 @@
-use crate::legacy_database::index::{
-    diff::DiffFile,
-    serialized::IndexCollection,
-    tests::util::{collection, rc, some_raw_ref, some_ref},
-    DbRefCollection,
-};
+use crate::legacy_database::index::tests::util::{collection, rc, some_raw_ref, some_ref};
 
 #[test]
 fn when_passed_index_collection_should_create_valid_reference() {
@@ -16,9 +11,9 @@ fn when_passed_index_collection_should_create_valid_reference() {
 
     assert_eq!(reference.ordered, rcs);
 
-    assert_eq!(reference.refs[&rc("1")], some_ref(1));
-    assert_eq!(reference.refs[&rc("2")], some_ref(5));
-    assert_eq!(reference.refs[&rc("3")], some_ref(10));
+    assert_eq!(reference.refs[&rc("1")], some_ref(1, "0"));
+    assert_eq!(reference.refs[&rc("2")], some_ref(5, "1"));
+    assert_eq!(reference.refs[&rc("3")], some_ref(10, "1"));
 
     assert_eq!(reference.reply_refs[&rc("0")], vec![rc("1")]);
     assert_eq!(reference.reply_refs[&rc("1")], vec![rc("2"), rc("3")]);

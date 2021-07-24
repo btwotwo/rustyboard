@@ -70,6 +70,7 @@ fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
         chunk_settings: None,
         deleted: false,
         length: 7,
+        parent_hash: rc("0"),
     };
 
     let (hash, _) = col.put_post(post);
@@ -102,6 +103,7 @@ fn put_post_should_return_free_chunk_name_and_offset_if_free_space_found() {
         }),
         length: 7,
         deleted: false,
+        parent_hash: rc("0"),
     };
     let (hash, _) = col.put_post(post);
     let db_ref = &col.refs[&hash];
