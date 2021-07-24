@@ -7,7 +7,7 @@ use crate::legacy_database::chunk::{chunk_index_to_name, chunk_name_to_index};
 use super::db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash};
 /// Reference of post messages, which are stored in chunks. This struct is serialized and written into
 /// `index-3.json` to save message positions inside chunks.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct DbPostRefSerialized {
     /// Post hash
     #[serde(rename = "h")]
