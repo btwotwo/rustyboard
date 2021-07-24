@@ -72,6 +72,7 @@ impl DbPostRefSerialized {
             chunk_settings,
             deleted: self.deleted,
             length: self.length,
+            parent_hash: hashes.parent.clone(),
         };
 
         (hashes, db_post_ref)
