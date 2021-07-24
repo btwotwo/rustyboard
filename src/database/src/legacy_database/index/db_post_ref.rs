@@ -27,4 +27,6 @@ pub struct DbPostRef {
     ///
     /// It still may occupy some place in chunk, see `chunk_settings`.
     pub deleted: bool,
+
+    pub parent_hash: DbPostRefHash,
 }
