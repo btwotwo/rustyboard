@@ -97,23 +97,25 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
 
     fn put_ref_into_free_chunk(&mut self, post_ref: &mut DbPostRef, post_bytes: &[u8]) {
         let opt_hash = self.find_free_ref(post_bytes);
-        if let Some(free_ref_hash) = opt_hash {
-            let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
-            let free_chunk_settings = mem::replace(&mut free_ref.chunk_settings, None);
-            post_ref.chunk_settings = free_chunk_settings;
-            free_ref.length = 0;
+        let free_ref_hash = match opt_hash {
+            Some(it) => it,
+            _ => return,
+        };
+        let free_ref = self.refs.get_mut(&free_ref_hash).unwrap();
+        let free_chunk_settings = mem::replace(&mut free_ref.chunk_settings, None);
+        post_ref.chunk_settings = free_chunk_settings;
+        free_ref.length = 0;
 
-            self.free.remove(&free_ref_hash);
-            self.diff
-                .append(
-                    &PostHashes {
-                        hash: free_ref_hash,
-                        parent: free_ref.parent_hash.clone(),
-                    },
-                    &free_ref,
-                )
-                .unwrap();
-        }
+        self.free.remove(&free_ref_hash);
+        self.diff
+            .append(
+                &PostHashes {
+                    hash: free_ref_hash,
+                    parent: free_ref.parent_hash.clone(),
+                },
+                &free_ref,
+            )
+            .unwrap();
     }
 
     fn upsert_without_diff(&mut self, hashes: &PostHashes, post: DbPostRef) {
