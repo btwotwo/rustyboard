@@ -52,11 +52,9 @@ impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcesso
     pub fn new(
         index_file: std::fs::File,
         chunk_processor: TProcessor,
-        diff: TDiff
     ) -> LegacyDatabaseResult<Self> {
         let index: IndexCollection = IndexCollection::from_file(index_file)?;
-        let reference = DbRefCollection::new(index, diff)?;
-
+        let reference = DbRefCollection::<TDiff>::new(index)?;
 
         Ok(LegacyDatabase {
             reference,
