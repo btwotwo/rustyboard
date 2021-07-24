@@ -1,4 +1,10 @@
-use std::{fs::{self, File, OpenOptions}, io::{self, BufRead, BufReader, Write}, iter::{self, FromIterator}, mem, path::{self, Path}};
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{self, BufRead, BufReader, Write},
+    iter::{self, FromIterator},
+    mem,
+    path::{self, Path},
+};
 
 use super::{
     db_post_ref::DbPostRef,
@@ -18,20 +24,17 @@ pub enum DiffFileError {
 }
 
 pub type DiffResult<T> = Result<T, DiffFileError>;
-pub trait Diff: Sized {
-    fn append(
-        &mut self,
-        hashes: &PostHashes,
-        db_ref: &DbPostRef,
-    ) -> DiffResult<()>;
 
-    fn drain(&mut self) -> DiffResult<Vec<DbPostRefSerialized>>;
+pub trait Diff: Sized {
+    fn append(&mut self, hashes: &PostHashes, db_ref: &DbPostRef) -> DiffResult<()>;
+
+    fn drain() -> DiffResult<(Self, Vec<DbPostRefSerialized>)>;
 }
 
 pub struct DiffFile(File);
 
 impl DiffFile {
-    pub fn new() -> DiffResult<Self> {
+    fn new() -> DiffResult<Self> {
         let file = Self::create_file()?;
         Ok(DiffFile(file))
     }
@@ -41,17 +44,17 @@ impl DiffFile {
         if !file_path.exists() {
             File::create(&file_path)?;
         }
-        let file = OpenOptions::new().append(true).create(true).read(true).open(&file_path)?;
+        let file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .read(true)
+            .open(&file_path)?;
         Ok(file)
     }
 }
 
 impl Diff for DiffFile {
-    fn append(
-        &mut self,
-        hashes: &PostHashes,
-        db_ref: &DbPostRef,
-    ) -> DiffResult<()> {
+    fn append(&mut self, hashes: &PostHashes, db_ref: &DbPostRef) -> DiffResult<()> {
         let serialized_obj = DbPostRefSerialized::new(hashes, db_ref);
         let serialized_string = serialized_obj.serialize()?;
         let mut file = Self::create_file()?;
@@ -60,22 +63,21 @@ impl Diff for DiffFile {
         Ok(())
     }
 
-    fn drain(&mut self) -> DiffResult<Vec<DbPostRefSerialized>>{
+    fn drain() -> DiffResult<(Self, Vec<DbPostRefSerialized>)> {
         let diff_file = Self::create_file()?;
         let buf = BufReader::new(&diff_file);
 
-        let result = buf.lines()
+        let result = buf
+            .lines()
             .map(|l| l.expect("Invalid diff file!"))
             .map(|line| DbPostRefSerialized::deserialize(&line).expect("Invalid diff file!"))
             .collect();
         mem::drop(diff_file);
         fs::remove_file(DIFF_FILENAME)?;
 
-        Ok(result)
+        Ok((Self::new()?, result))
     }
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}
