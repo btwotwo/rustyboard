@@ -1,4 +1,9 @@
-use crate::legacy_database::index::tests::util::{collection, rc, some_raw_ref, some_ref};
+use crate::legacy_database::index::{
+    diff::Diff,
+    tests::util::{collection, rc, some_raw_ref, some_ref},
+};
+
+use super::util::collection_with_diff;
 
 #[test]
 fn when_passed_index_collection_should_create_valid_reference() {
@@ -50,4 +55,32 @@ fn when_there_is_unused_space_should_add_post_hash_to_free() {
 
     assert_eq!(reference.free.len(), 1);
     assert!(reference.free.contains(&free_rc))
+}
+
+#[test]
+fn when_creating_new_collection_should_not_add_anything_to_diff() {
+    let ref_1 = some_raw_ref("1", "0", 5);
+    let ref_2 = some_raw_ref("2", "0", 3);
+    let ref_3 = some_raw_ref("3", "1", 10);
+
+    let refr = collection_with_diff(vec![ref_1, ref_2, ref_3]);
+
+    assert!(refr.diff.data.is_empty());
+}
+
+#[test]
+fn when_creating_new_collection_should_create_new_data_from_diff() {
+    let refr = collection_with_diff(vec![]);
+    assert_eq!(refr.refs[&rc("1")], some_raw_ref("1", "0", 10).split().1);
+    assert_eq!(refr.refs[&rc("2")], some_raw_ref("2", "1", 5).split().1);
+    assert_eq!(refr.refs[&rc("3")], some_raw_ref("3", "1", 10).split().1);
+}
+
+#[test]
+fn when_creating_new_collection_should_update_existing_data_from_diff() {
+    let ref_1 = some_raw_ref("1", "0", 300);
+
+    let refr = collection_with_diff(vec![ref_1]);
+
+    assert_eq!(refr.refs[&rc("1")].length, 10);
 }

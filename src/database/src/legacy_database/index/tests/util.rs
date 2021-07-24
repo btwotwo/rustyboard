@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::legacy_database::{
+use crate::{legacy_database::{
     self,
     index::{
         db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
@@ -8,7 +8,7 @@ use crate::legacy_database::{
         serialized::{DbPostRefSerialized, IndexCollection, PostHashes},
         DbRefCollection,
     },
-};
+}, post::{Post, PostMessage}};
 
 pub struct DummyDiff;
 impl Diff for DummyDiff {
@@ -21,7 +21,35 @@ impl Diff for DummyDiff {
     }
 
     fn drain() -> legacy_database::index::diff::DiffResult<(Self, Vec<DbPostRefSerialized>)> {
-        Ok((DummyDiff, Vec::new()))
+        Ok((Self, Vec::new()))
+    }
+}
+
+pub struct CollectingDiffWithData {
+    pub data: Vec<DbPostRefSerialized>,
+}
+
+impl Diff for CollectingDiffWithData {
+    fn append(
+        &mut self,
+        hashes: &PostHashes,
+        db_ref: &DbPostRef,
+    ) -> legacy_database::index::diff::DiffResult<()> {
+        self.data.push(DbPostRefSerialized::new(hashes, db_ref));
+        Ok(())
+    }
+
+    fn drain() -> legacy_database::index::diff::DiffResult<(Self, Vec<DbPostRefSerialized>)> {
+        let ref_1 = some_raw_ref("1", "0", 10);
+        let ref_2 = some_raw_ref("2", "1", 5);
+        let ref_3 = some_raw_ref("3", "1", 10);
+
+        Ok((
+            CollectingDiffWithData {
+                data: Vec::new()
+            },
+            vec![ref_1, ref_2, ref_3],
+        ))
     }
 }
 
@@ -76,6 +104,20 @@ pub fn some_raw_removed_ref(hash: &str, parent: &str) -> DbPostRefSerialized {
     }
 }
 
+pub fn some_post(hash: &str, parent: &str, message: &str) -> Post {
+    Post {
+        hash: hash.to_string(),
+        message: PostMessage::new(message.to_string()),
+        reply_to: parent.to_string()
+    }
+}
+
 pub fn collection(refs: Vec<DbPostRefSerialized>) -> DbRefCollection<DummyDiff> {
+    DbRefCollection::new(IndexCollection { indexes: refs }).unwrap()
+}
+
+pub fn collection_with_diff(
+    refs: Vec<DbPostRefSerialized>,
+) -> DbRefCollection<CollectingDiffWithData> {
     DbRefCollection::new(IndexCollection { indexes: refs }).unwrap()
 }

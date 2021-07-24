@@ -1,14 +1,8 @@
 use pretty_assertions::assert_eq;
 
-use crate::{
-    legacy_database::index::{
-        db_post_ref::{ChunkSettings, DbPostRef},
-        tests::util::rc,
-    },
-    post::{Post, PostMessage},
-};
+use crate::{legacy_database::index::{db_post_ref::{ChunkSettings, DbPostRef}, serialized::PostHashes, tests::util::{rc, some_post}}, post::{Post, PostMessage}};
 
-use super::util::{collection, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref};
+use super::util::{collection, collection_with_diff, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref};
 
 #[test]
 fn find_free_ref_should_not_return_when_chunk_settings_are_none() {
@@ -131,6 +125,39 @@ fn put_post_when_inserts_into_free_space_should_remove_chunk_data_from_free_post
 
     matches!(col.refs[&rc("2")].chunk_settings, None);
     assert_eq!(col.refs[&rc("2")].length, 0);
+}
+
+#[test]
+fn put_post_should_update_diff() {
+    let ref_1 = some_raw_ref("5", "0", 10);
+    let mut coll = collection_with_diff(vec![ref_1]);
+    let post = some_post("20", "1", "Test");
+    let mut expected_ref = some_raw_ref("20", "1", 4);
+    expected_ref.offset = 0;
+    expected_ref.length = 4;
+    expected_ref.chunk_name = None;
+    
+    coll.put_post(post);
+
+    assert_eq!(coll.diff.data[0], expected_ref)
+}
+
+#[test]
+fn upsert_ref_should_update_existing_data() {
+    let ref_1 = some_raw_ref("1", "0", 10);
+    let mut updated_ref = some_raw_ref("1", "0", 100);
+    updated_ref.deleted = true;
+
+    let mut coll = collection(vec![ref_1]);
+
+    coll.upsert_ref(&PostHashes {
+        hash: rc("1"),
+        parent: rc("0")
+    }, updated_ref.split().1);
+
+    assert_eq!(coll.refs[&rc("1")].deleted, true);
+    assert_eq!(coll.refs[&rc("1")].length, 100);
+    assert!(coll.deleted.contains(&rc("1")));
 }
 
 fn message() -> PostMessage {
