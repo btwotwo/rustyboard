@@ -65,7 +65,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     fn apply_serialized_posts(&mut self, posts: Vec<DbPostRefSerialized>) {
         for ser_post in posts {
             let (raw_hashes, data) = ser_post.split();
-            self.upsert_without_diff(&raw_hashes, data);
+            self.upsert_ref(&raw_hashes, data);
         }
     }
 
@@ -85,8 +85,9 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         };
 
         self.put_ref_into_free_chunk(&mut post_ref, &post_bytes);
-
-        self.upsert_with_diff(&hashes, post_ref);
+        self.upsert_ref(&hashes, post_ref);
+        self.diff
+            .append(&hashes, self.refs.get(&hashes.hash).unwrap());
 
         (hashes.hash, post.message)
     }
@@ -107,28 +108,13 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         free_ref.length = 0;
 
         self.free.remove(&free_ref_hash);
-        self.diff
-            .append(
-                &PostHashes {
-                    hash: free_ref_hash,
-                    parent: free_ref.parent_hash.clone(),
-                },
-                &free_ref,
-            )
-            .unwrap();
-    }
-
-    fn upsert_without_diff(&mut self, hashes: &PostHashes, post: DbPostRef) {
-        self.upsert_ref(hashes, post)
-    }
-
-    fn upsert_with_diff(&mut self, hashes: &PostHashes, post: DbPostRef) {
-        let is_presented = self.refs.contains_key(&hashes.hash);
-        if is_presented {
-            self.diff.append(&hashes, &post);
-        }
-
-        self.upsert_ref(hashes, post)
+        self.diff.append(
+            &PostHashes {
+                hash: free_ref_hash,
+                parent: free_ref.parent_hash.clone(),
+            },
+            &free_ref,
+        );
     }
 
     /// Puts post reference to the `refs`, `reply_refs`, and `deleted` if post was deleted.
