@@ -62,13 +62,6 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         Ok(refr)
     }
 
-    fn apply_serialized_posts(&mut self, posts: Vec<DbPostRefSerialized>) {
-        for ser_post in posts {
-            let (raw_hashes, data) = ser_post.split();
-            self.upsert_ref(&raw_hashes, data);
-        }
-    }
-
     /// Puts post into the database reference collection.
     pub fn put_post(&mut self, post: Post) -> (DbPostRefHash, PostMessage) {
         let post_bytes = post.get_message_bytes();
@@ -92,8 +85,16 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         (hashes.hash, post.message)
     }
 
-    pub fn get_ref_mut(&mut self, hash: &DbPostRefHash) -> Option<&mut DbPostRef> {
-        self.refs.get_mut(hash)
+    pub fn get_ref_mut(&mut self, hash: &str) -> Option<&mut DbPostRef> {
+        self.refs.get_mut(&hash.to_string())
+    }
+
+    pub fn get_ref(&self, hash: &str) -> Option<&DbPostRef> {
+        self.refs.get(&hash.to_string())
+    }
+
+    pub fn ref_exists(&self, hash: &str) -> bool {
+        self.refs.contains_key(&hash.to_string())
     }
 
     fn put_ref_into_free_chunk(&mut self, post_ref: &mut DbPostRef, post_bytes: &[u8]) {
@@ -108,19 +109,20 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         free_ref.length = 0;
 
         self.free.remove(&free_ref_hash);
-        self.diff.append(
-            &PostHashes {
-                hash: free_ref_hash,
-                parent: free_ref.parent_hash.clone(),
-            },
-            &free_ref,
-        );
+        self.diff
+            .append(
+                &PostHashes {
+                    hash: free_ref_hash,
+                    parent: free_ref.parent_hash.clone(),
+                },
+                &free_ref,
+            )
+            .unwrap();
     }
 
     /// Puts post reference to the `refs`, `reply_refs`, and `deleted` if post was deleted.
     /// If ref is already in the collection, updates it and updates diff
     fn upsert_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
-        // todo we need to put diff refs into ref collection
         let hash_rc = &hashes.hash;
         let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
 
@@ -189,6 +191,13 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         match kv {
             Some((key, _)) => Rc::clone(key),
             None => parent,
+        }
+    }
+
+    fn apply_serialized_posts(&mut self, posts: Vec<DbPostRefSerialized>) {
+        for ser_post in posts {
+            let (raw_hashes, data) = ser_post.split();
+            self.upsert_ref(&raw_hashes, data);
         }
     }
 }
