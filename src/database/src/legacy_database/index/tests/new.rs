@@ -1,7 +1,4 @@
-use crate::legacy_database::index::{
-    diff::Diff,
-    tests::util::{collection, rc, some_raw_ref, some_ref},
-};
+use crate::legacy_database::index::tests::util::{collection, rc, some_raw_ref, some_ref};
 
 use super::util::collection_with_diff;
 

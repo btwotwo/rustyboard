@@ -1,8 +1,17 @@
 use pretty_assertions::assert_eq;
 
-use crate::{legacy_database::index::{db_post_ref::{ChunkSettings, DbPostRef}, serialized::PostHashes, tests::util::{rc, some_post}}, post::{Post, PostMessage}};
+use crate::{
+    legacy_database::index::{
+        db_post_ref::{ChunkSettings, DbPostRef},
+        serialized::PostHashes,
+        tests::util::{rc, some_post},
+    },
+    post::{Post, PostMessage},
+};
 
-use super::util::{collection, collection_with_diff, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref};
+use super::util::{
+    collection, collection_with_diff, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref,
+};
 
 #[test]
 fn find_free_ref_should_not_return_when_chunk_settings_are_none() {
@@ -136,7 +145,7 @@ fn put_post_should_update_diff() {
     expected_ref.offset = 0;
     expected_ref.length = 4;
     expected_ref.chunk_name = None;
-    
+
     coll.put_post(post);
 
     assert_eq!(coll.diff.data[0], expected_ref)
@@ -150,10 +159,13 @@ fn upsert_ref_should_update_existing_data() {
 
     let mut coll = collection(vec![ref_1]);
 
-    coll.upsert_ref(&PostHashes {
-        hash: rc("1"),
-        parent: rc("0")
-    }, updated_ref.split().1);
+    coll.upsert_ref(
+        &PostHashes {
+            hash: rc("1"),
+            parent: rc("0"),
+        },
+        updated_ref.split().1,
+    );
 
     assert_eq!(coll.refs[&rc("1")].deleted, true);
     assert_eq!(coll.refs[&rc("1")].length, 100);

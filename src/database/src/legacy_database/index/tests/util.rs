@@ -1,14 +1,17 @@
 use std::rc::Rc;
 
-use crate::{legacy_database::{
-    self,
-    index::{
-        db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
-        diff::Diff,
-        serialized::{DbPostRefSerialized, IndexCollection, PostHashes},
-        DbRefCollection,
+use crate::{
+    legacy_database::{
+        self,
+        index::{
+            db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
+            diff::Diff,
+            serialized::{DbPostRefSerialized, IndexCollection, PostHashes},
+            DbRefCollection,
+        },
     },
-}, post::{Post, PostMessage}};
+    post::{Post, PostMessage},
+};
 
 pub struct DummyDiff;
 impl Diff for DummyDiff {
@@ -45,9 +48,7 @@ impl Diff for CollectingDiffWithData {
         let ref_3 = some_raw_ref("3", "1", 10);
 
         Ok((
-            CollectingDiffWithData {
-                data: Vec::new()
-            },
+            CollectingDiffWithData { data: Vec::new() },
             vec![ref_1, ref_2, ref_3],
         ))
     }
@@ -108,7 +109,7 @@ pub fn some_post(hash: &str, parent: &str, message: &str) -> Post {
     Post {
         hash: hash.to_string(),
         message: PostMessage::new(message.to_string()),
-        reply_to: parent.to_string()
+        reply_to: parent.to_string(),
     }
 }
 
