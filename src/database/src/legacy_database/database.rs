@@ -1,4 +1,4 @@
-use std::io::{self, BufReader};
+use std::io;
 
 use super::{
     chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
@@ -9,7 +9,7 @@ use super::{
     },
 };
 use crate::{post::Post, post_database::Database};
-use serde_json::value::Index;
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -36,7 +36,6 @@ pub enum LegacyDatabaseError {
     DiffError(#[from] DiffFileError),
 }
 
-const INDEX_FILENAME: &str = "index-3.json";
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
 
 struct LegacyDatabase<TProcessor, TDiff>
