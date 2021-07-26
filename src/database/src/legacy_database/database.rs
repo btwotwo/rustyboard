@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, rc::Rc};
 
 use super::{
     chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
@@ -34,6 +34,12 @@ pub enum LegacyDatabaseError {
 
     #[error("Error processing diff")]
     DiffError(#[from] DiffFileError),
+
+    #[error("Trying to add duplicate post!")]
+    DuplicatePost,
+
+    #[error("Post does not exist")]
+    PostDoesntExist,
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -47,7 +53,10 @@ where
     chunk_processor: TProcessor,
 }
 
-impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcessor, TDiff> {
+impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcessor, TDiff>
+where
+    LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>,
+{
     pub fn new(
         index_file: std::fs::File,
         chunk_processor: TProcessor,
@@ -60,6 +69,23 @@ impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcesso
             chunk_processor,
         })
     }
+
+    fn upsert_post(&mut self, post: Post) -> Result<(), LegacyDatabaseError> {
+        //todo validate post
+        let (hash, message) = self.reference.put_post(post);
+        let db_ref = self.reference.get_ref_mut(&hash).unwrap();
+        match &db_ref.chunk_settings {
+            Some(settings) => {
+                self.chunk_processor
+                    .insert_into_existing(&settings, &message)?;
+            }
+            None => {
+                let chunk_settings = self.chunk_processor.insert(&message)?;
+                db_ref.chunk_settings = Some(chunk_settings);
+            }
+        };
+        Ok(())
+    }
 }
 
 impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> Database
@@ -69,23 +95,41 @@ where
 {
     type Error = LegacyDatabaseError;
 
-    fn put_post(&mut self, post: Post, allow_reput: bool) -> Result<(), LegacyDatabaseError> {
+    fn put_post(&mut self, post: Post) -> Result<(), LegacyDatabaseError> {
         //todo allow_reput
-        //todo validate post
-        let (hash, message) = self.reference.put_post(post);
-        let db_ref = self.reference.get_ref_mut(&hash).unwrap();
-        if let Some(settings) = &db_ref.chunk_settings {
-            self.chunk_processor
-                .insert_into_existing(&settings, &message)?;
-        } else {
-            let chunk_settings = self.chunk_processor.insert(&message)?;
-            db_ref.chunk_settings = Some(chunk_settings);
-        };
+        if self.reference.ref_exists(&post.hash) {
+            return Err(LegacyDatabaseError::DuplicatePost);
+        }
+
+        self.upsert_post(post)?;
 
         Ok(())
     }
 
     fn get_post(&self, hash: String) -> Option<Post> {
+        let db_ref = self.reference.get_ref(&hash)?;
+        if db_ref.deleted {
+            return Some(Post::new(
+                hash,
+                db_ref.parent_hash.to_string(),
+                "Deleted Message Stub Move Me To Const Pls :)".to_string(),
+            ));
+        }
+
+        let chunk_settings = db_ref.chunk_settings.as_ref()?;
+
+
+        //todo finish this method
         todo!()
+    }
+
+    fn update_post(&mut self, post: Post) -> Result<(), Self::Error> {
+        if !self.reference.ref_exists(&post.hash) {
+            return Err(LegacyDatabaseError::PostDoesntExist);
+        }
+
+        self.upsert_post(post)?;
+
+        Ok(())
     }
 }
