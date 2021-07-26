@@ -23,7 +23,7 @@ And that's not all!
 
 ## Why Rust?
 
-Just for fun. This is a learning project after all. The author of the original project wrote it on C#, the language which I'm familiar with. It's much more interesting to try something new, isn't it?
+Just for fun. This is a learning project after all. The author of the original project wrote it in C#, the language which I'm familiar with. It's much more interesting to try something new, isn't it?
 
 
 ## To-do list
