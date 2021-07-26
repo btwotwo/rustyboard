@@ -16,6 +16,8 @@ pub trait ChunkCollectionProcessor {
         chunk: &ChunkSettings,
         post: &PostMessage,
     ) -> Result<(), Self::Error>;
+
+    fn get_message(&self, chunk: &ChunkSettings) -> Result<PostMessage, Self::Error>;
 }
 
 pub struct OnDiskChunkCollectionProcessor<TChunk: ChunkTrait> {
@@ -75,9 +77,13 @@ impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProce
         post: &PostMessage,
     ) -> Result<(), Self::Error> {
         let post_bytes = post.get_bytes();
-        let mut chunk = TChunk::open(settings.chunk_index)?;
+        let mut chunk = TChunk::open_without_sizecheck(settings.chunk_index)?;
         chunk.try_write_data(&post_bytes, settings.offset)?;
         Ok(())
+    }
+
+    fn get_message(&self, chunk: &ChunkSettings) -> Result<PostMessage, Self::Error> {
+        todo!()
     }
 }
 
@@ -145,7 +151,7 @@ mod tests {
 
     #[test]
     fn insert_into_existsing_should_write_data() {
-        let ctx = MockChunkTrait::open_context();
+        let ctx = MockChunkTrait::open_without_sizecheck_context();
         let offset = 10u64;
 
         ctx.expect().with(eq(0)).returning(move |_| {
@@ -158,7 +164,7 @@ mod tests {
 
             Ok(chunk)
         });
-        let chunk = MockChunkTrait::open(0).unwrap();
+        let chunk = MockChunkTrait::open_without_sizecheck(0).unwrap();
 
         let mut prcrsr = processor(chunk);
         prcrsr
