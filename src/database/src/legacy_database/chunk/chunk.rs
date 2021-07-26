@@ -1,8 +1,12 @@
+use base64::read;
 #[cfg(test)]
 use mockall::automock;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
@@ -27,7 +31,7 @@ pub trait ChunkTrait {
     fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset>;
     fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()>;
 
-    fn open(index: ChunkIndex) -> ChunkResult<Self>
+    fn open_without_sizecheck(index: ChunkIndex) -> ChunkResult<Self>
     where
         Self: Sized;
 
@@ -36,6 +40,8 @@ pub trait ChunkTrait {
         Self: Sized;
 
     fn index(&self) -> ChunkIndex;
+
+    fn read_data(&self, offset: Offset, length: u64) -> ChunkResult<Vec<u8>>;
 }
 #[derive(Debug)]
 pub struct Chunk {
@@ -62,6 +68,7 @@ pub type ChunkResult<T> = std::result::Result<T, ChunkError>;
 enum FileMode {
     Write,
     Append,
+    Read
 }
 
 impl ChunkTrait for Chunk {
@@ -71,28 +78,6 @@ impl ChunkTrait for Chunk {
         let chunk = Self::try_create(new_index, Some(self.max_chunk_size))?;
 
         Ok(chunk)
-    }
-
-    /// Tries to open existing chunk with specified index.
-    ///
-    /// **Warning!** This function doesn't check for chunk's size
-    /// # Arguments
-    /// * `index` - chunk's index ('0.db3', '1.db3'...)
-    fn open(index: ChunkIndex) -> ChunkResult<Self> {
-        let chunk = Chunk::new(index, None);
-        chunk.file_exists()?;
-        Ok(chunk)
-    }
-
-    /// Tries to open already existing chunk, starting from `0.db3`. If chunk is larger than the limit, tries to open the next one.
-    /// # Errors
-    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
-    fn try_new(max_chunk_size: Option<u64>) -> ChunkResult<Self> {
-        Self::try_new_from(0, max_chunk_size)
-    }
-
-    fn index(&self) -> ChunkIndex {
-        self.index
     }
 
     /// Appends data to the chunk.
@@ -114,6 +99,39 @@ impl ChunkTrait for Chunk {
         let file = self.get_file(FileMode::Write)?;
         file.write_all_at(data, offset)?;
         Ok(())
+    }
+
+    /// Tries to open existing chunk with specified index.
+    ///
+    /// **Warning!** This function doesn't check for chunk's size
+    /// # Arguments
+    /// * `index` - chunk's index ('0.db3', '1.db3'...)
+    fn open_without_sizecheck(index: ChunkIndex) -> ChunkResult<Self> {
+        let chunk = Chunk::new(index, None);
+        chunk.file_exists()?;
+        Ok(chunk)
+    }
+
+    /// Tries to open already existing chunk, starting from `0.db3`. If chunk is larger than the limit, tries to open the next one.
+    /// # Errors
+    /// If any IO error (except [`NotFound`]) is encountered the function will return immediately
+    fn try_new(max_chunk_size: Option<u64>) -> ChunkResult<Self> {
+        Self::try_new_from(0, max_chunk_size)
+    }
+
+    /// Returns chunk index (0 - for "0.db3", 1 - for "1.db3", etc...)
+    fn index(&self) -> ChunkIndex {
+        self.index
+    }
+
+    /// Reads byte array specified via offset from the start of the file and length
+    fn read_data(&self, offset: Offset, length: u64) -> ChunkResult<Vec<u8>> {
+        let file = self.get_file(FileMode::Read)?;
+        let mut buffer = vec![0; length as usize];
+        let mut reader = BufReader::new(file);
+        reader.read_exact(&mut buffer)?;
+
+        Ok(buffer)
     }
 }
 
@@ -195,6 +213,7 @@ impl Chunk {
         match mode {
             FileMode::Append => OpenOptions::new().append(true).open(&self.filename),
             FileMode::Write => OpenOptions::new().write(true).open(&self.filename),
+            FileMode::Read => OpenOptions::new().read(true).open(&self.filename)
         }
     }
 
@@ -366,12 +385,30 @@ mod tests {
             fn try_write_data_should_write_at_given_offset() {
                 in_temp_dir!({
                     File::create("0.db3").unwrap().write_all(b"buffer").unwrap();
-                    let mut chunk = Chunk::open(0).unwrap();
+                    let mut chunk = Chunk::open_without_sizecheck(0).unwrap();
 
                     chunk.try_write_data(b"i", 1).unwrap();
 
                     let file_contents = fs::read_to_string("0.db3").unwrap();
                     assert_eq!(file_contents, "biffer")
+                });
+            }
+        }
+    }
+
+    mod read {
+        use super::*;
+
+        rusty_fork_test! {
+            #[test]
+            fn read_data_respects_offset_and_length() {
+                in_temp_dir!({
+                    File::create("0.db3").unwrap().write_all(&[1,2,3,4,5,6,7]).unwrap();
+                    let chunk = Chunk::open_without_sizecheck(0).unwrap();
+
+                    //todo: fix this test
+                    let res = chunk.read_data(3, 3).unwrap();
+                    assert_eq!(res, vec![4,5,6]);
                 });
             }
         }
