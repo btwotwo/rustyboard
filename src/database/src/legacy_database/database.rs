@@ -117,6 +117,7 @@ where
         }
 
         let chunk_settings = db_ref.chunk_settings.as_ref()?;
+        // let post_message = self.chunk_processor.get_message(chunk_settings, db_ref.length)?;
 
 
         //todo finish this method
