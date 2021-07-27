@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, string};
 
 use crate::{legacy_database::index::db_post_ref::ChunkSettings, post::PostMessage};
 
@@ -17,7 +17,7 @@ pub trait ChunkCollectionProcessor {
         post: &PostMessage,
     ) -> Result<(), Self::Error>;
 
-    fn get_message(&self, chunk: &ChunkSettings) -> Result<PostMessage, Self::Error>;
+    fn get_message(&self, chunk: &ChunkSettings, len: u64) -> Result<PostMessage, Self::Error>;
 }
 
 pub struct OnDiskChunkCollectionProcessor<TChunk: ChunkTrait> {
@@ -31,6 +31,9 @@ pub enum OnDiskChunkCollectionProcessorError {
         #[from]
         source: ChunkError,
     },
+
+    #[error("Error converting message bytes to utf8")]
+    Base64Error(#[from]string::FromUtf8Error)
 }
 
 impl<TChunk: ChunkTrait> OnDiskChunkCollectionProcessor<TChunk> {
@@ -82,13 +85,24 @@ impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProce
         Ok(())
     }
 
-    fn get_message(&self, chunk: &ChunkSettings) -> Result<PostMessage, Self::Error> {
-        todo!()
+    fn get_message(&self, chunk_settings: &ChunkSettings, len: u64) -> Result<PostMessage, Self::Error> {
+        let offset = chunk_settings.offset;
+        let post_bytes = if self.last_chunk.index() == chunk_settings.chunk_index {
+            self.last_chunk.read_data(offset, len)?
+        } else {
+            TChunk::open_without_sizecheck(chunk_settings.chunk_index)?.read_data(offset, len)?
+        };
+
+        let post_message = PostMessage::from_bytes(post_bytes)?;
+
+        Ok(post_message)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::os::unix::process;
+
     use super::*;
     use crate::legacy_database::chunk::chunk::*;
     use mockall::{automock, mock, predicate::*};
@@ -178,6 +192,70 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    fn get_message_selects_current_chunk_if_last_chunk_index_is_same() {
+        let mut chunk = mock();
+        let offset = 123;
+        let len = 321;
+        let chunk_settings = ChunkSettings {
+            chunk_index: 0,
+            offset
+        };
+
+        with_index(&mut chunk, 0);
+        chunk.expect_read_data().with(eq(chunk_settings.offset), eq(len)).times(1).return_once(|_, _| {
+            Ok("test".as_bytes().to_vec())
+        });
+
+        let prcsrs = processor(chunk);
+
+        prcsrs.get_message(&chunk_settings, len).unwrap();
+    }
+    
+    #[test]
+    fn get_message_opens_new_chunk_if_chunk_index_is_different() {
+        let mut chunk = mock();
+        let offset = 123;
+        let len = 321;
+        let chunk_settings = ChunkSettings {
+            chunk_index: 1,
+            offset
+        };
+
+        with_index(&mut chunk, 0);
+        chunk.expect_read_data().with(eq(chunk_settings.offset), eq(len)).times(0);
+        let ctx = MockChunkTrait::open_without_sizecheck_context();
+
+        ctx.expect().with(eq(1)).returning(move |_| {
+            let mut new_chunk = mock();
+            new_chunk.expect_read_data().with(eq(offset), eq(len)).times(1).return_once(|_, _| {
+                Ok("test".as_bytes().to_vec())
+            });
+            Ok(new_chunk)
+        });
+
+        let processor = processor(chunk);
+        processor.get_message(&chunk_settings, len).unwrap();
+
+    }
+
+    #[test]
+    fn get_message_returns_valid_message() {
+        let mut chunk = mock();
+        let settings = ChunkSettings { chunk_index: 0, offset:123 };
+        let len = 321;
+        with_index(&mut chunk, 0);
+        chunk.expect_read_data().with(eq(settings.offset), eq(len)).times(1).return_once(|_, _| {
+            Ok("test".as_bytes().to_vec())
+        });
+        let expected_result = PostMessage::new("test".to_string());
+        let processor = processor(chunk);
+
+        let result = processor.get_message(&settings, len).unwrap();
+        
+        assert_eq!(result, expected_result);
+    }
+
     fn post() -> PostMessage {
         PostMessage::new("test".to_string())
     }
@@ -186,6 +264,11 @@ mod tests {
         MockChunkTrait::new()
     }
 
+    fn with_index(mock: &mut MockChunkTrait, index: u64) {
+        mock.expect_index().return_const(index);
+    }
+
+    
     fn processor(c: MockChunkTrait) -> OnDiskChunkCollectionProcessor<MockChunkTrait> {
         OnDiskChunkCollectionProcessor { last_chunk: c }
     }

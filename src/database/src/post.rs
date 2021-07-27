@@ -1,3 +1,5 @@
+use std::string::FromUtf8Error;
+
 #[derive(Clone)]
 pub struct Post {
     pub hash: String,
@@ -6,7 +8,7 @@ pub struct Post {
     pub message: PostMessage,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct PostMessage(String);
 
 impl Post {
@@ -21,11 +23,17 @@ impl Post {
     pub fn get_message_bytes(&self) -> Vec<u8> {
         self.message.get_bytes()
     }
+
 }
 
 impl PostMessage {
     pub fn new(raw_message: String) -> Self {
         PostMessage(base64::encode(raw_message))
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, FromUtf8Error> {
+        let utf8 = String::from_utf8(bytes)?;
+        Ok(Self::new(utf8))
     }
 
     pub fn get_bytes(&self) -> Vec<u8> {
