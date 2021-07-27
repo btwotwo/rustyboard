@@ -129,6 +129,7 @@ impl ChunkTrait for Chunk {
         let file = self.get_file(FileMode::Read)?;
         let mut buffer = vec![0; length as usize];
         let mut reader = BufReader::new(file);
+        reader.seek(SeekFrom::Start(offset))?;
         reader.read_exact(&mut buffer)?;
 
         Ok(buffer)
@@ -406,7 +407,6 @@ mod tests {
                     File::create("0.db3").unwrap().write_all(&[1,2,3,4,5,6,7]).unwrap();
                     let chunk = Chunk::open_without_sizecheck(0).unwrap();
 
-                    //todo: fix this test
                     let res = chunk.read_data(3, 3).unwrap();
                     assert_eq!(res, vec![4,5,6]);
                 });
