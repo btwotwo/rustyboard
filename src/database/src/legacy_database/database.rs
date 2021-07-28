@@ -1,13 +1,6 @@
 use std::{io, rc::Rc};
 
-use super::{
-    chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
-    index::{
-        diff::{Diff, DiffFileError},
-        serialized::IndexCollection,
-        DbRefCollection,
-    },
-};
+use super::{chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError}, index::{DbRefCollection, db_post_ref::DbPostRef, diff::{Diff, DiffFileError}, serialized::IndexCollection}};
 use crate::{post::Post, post_database::Database};
 
 use thiserror::Error;
@@ -40,6 +33,9 @@ pub enum LegacyDatabaseError {
 
     #[error("Post does not exist")]
     PostDoesntExist,
+
+    #[error("Entry isn't deleted, but chunk settings are not specified. Entry hash: {0}")]
+    EntryCorrupted(String)
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -106,22 +102,27 @@ where
         Ok(())
     }
 
-    fn get_post(&self, hash: String) -> Option<Post> {
-        let db_ref = self.reference.get_ref(&hash)?;
+    fn get_post(&self, hash: String) -> Result<Option<Post>, LegacyDatabaseError> {
+        let db_ref = match self.reference.get_ref(&hash) {
+            Some(db_ref) => db_ref,
+            None => return Ok(None)
+        };
+
         if db_ref.deleted {
-            return Some(Post::new(
+            return Ok(Some(Post::new(
                 hash,
                 db_ref.parent_hash.to_string(),
                 "Deleted Message Stub Move Me To Const Pls :)".to_string(),
-            ));
+            )));
         }
 
-        let chunk_settings = db_ref.chunk_settings.as_ref()?;
-        // let post_message = self.chunk_processor.get_message(chunk_settings, db_ref.length)?;
-
-
-        //todo finish this method
-        todo!()
+        let chunk_settings = db_ref.chunk_settings.as_ref().ok_or_else(|| LegacyDatabaseError::EntryCorrupted(hash.clone()))?;
+        let post_message = self.chunk_processor.get_message(&chunk_settings, db_ref.length)?;
+        Ok(Some(Post {
+            hash,
+            message: post_message,
+            reply_to: db_ref.parent_hash.to_string()
+        }))
     }
 
     fn update_post(&mut self, post: Post) -> Result<(), Self::Error> {
