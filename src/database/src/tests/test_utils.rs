@@ -25,20 +25,7 @@ use crate::{
     post::{Post, PostMessage},
 };
 
-pub struct DummyDiff;
-impl Diff for DummyDiff {
-    fn append(
-        &mut self,
-        _hashes: &legacy_database::index::serialized::PostHashes,
-        _db_ref: &DbPostRef,
-    ) -> legacy_database::index::diff::DiffResult<()> {
-        Ok(())
-    }
-
-    fn drain() -> legacy_database::index::diff::DiffResult<(Self, Vec<DbPostRefSerialized>)> {
-        Ok((Self, Vec::new()))
-    }
-}
+pub use super::dummy_impls::*;
 
 pub struct CollectingDiffWithData {
     pub data: Vec<DbPostRefSerialized>,
@@ -134,3 +121,4 @@ pub fn collection_with_diff(
 ) -> DbRefCollection<CollectingDiffWithData> {
     DbRefCollection::new(IndexCollection { indexes: refs }).unwrap()
 }
+pub fn dummy_chunk_processor() -> DummyChunkProcessor {
