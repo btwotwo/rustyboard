@@ -1,6 +1,4 @@
-use crate::legacy_database::index::tests::util::{collection, rc, some_raw_ref, some_ref};
-
-use super::util::collection_with_diff;
+use crate::tests::test_utils::*;
 
 #[test]
 fn when_passed_index_collection_should_create_valid_reference() {

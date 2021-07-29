@@ -1,17 +1,11 @@
 use pretty_assertions::assert_eq;
 
-use crate::{
-    legacy_database::index::{
+use crate::{legacy_database::index::{
         db_post_ref::{ChunkSettings, DbPostRef},
         serialized::PostHashes,
-        tests::util::{rc, some_post},
-    },
-    post::{Post, PostMessage},
-};
+    }, post::{Post, PostMessage}};
 
-use super::util::{
-    collection, collection_with_diff, some_raw_deleted_ref, some_raw_ref, some_raw_removed_ref,
-};
+use crate::tests::test_utils::*;
 
 #[test]
 fn find_free_ref_should_not_return_when_chunk_settings_are_none() {
