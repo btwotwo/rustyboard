@@ -1,9 +1,12 @@
 use pretty_assertions::assert_eq;
 
-use crate::{legacy_database::index::{
+use crate::{
+    legacy_database::index::{
         db_post_ref::{ChunkSettings, DbPostRef},
         serialized::PostHashes,
-    }, post::{Post, PostMessage}};
+    },
+    post::{Post, PostMessage},
+};
 
 use crate::tests::test_utils::*;
 
