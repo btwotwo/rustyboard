@@ -56,19 +56,20 @@ where
     chunk_processor: TProcessor,
 }
 
-impl<TProcessor: ChunkCollectionProcessor, TDiff: Diff> LegacyDatabase<TProcessor, TDiff>
+impl<TProcessor, TDiff> LegacyDatabase<TProcessor, TDiff>
 where
     LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>,
+    TProcessor: ChunkCollectionProcessor,
+    TDiff: Diff,
 {
     pub fn new(
         reference: DbRefCollection<TDiff>,
         chunk_processor: TProcessor,
-    ) -> LegacyDatabaseResult<Self> {
-
-        Ok(LegacyDatabase {
+    ) -> Self {
+        LegacyDatabase {
             reference,
             chunk_processor,
-        })
+        }
     }
 
     fn upsert_post(&mut self, post: Post) -> Result<(), LegacyDatabaseError> {
@@ -145,4 +146,32 @@ where
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{assert_err, tests::test_utils::*};
+
+    #[test]
+    fn update_post_if_post_doesnt_exist_should_return_error() {
+        let collection = collection(vec![some_raw_ref("1", "0", 10), some_raw_ref("2", "0", 15)]);
+        let mut db = LegacyDatabase::new(collection, dummy_chunk_processor());
+        let post = some_post("10", "0", "test");
+        
+        let result = db.update_post(post);
+        assert_err!(result, LegacyDatabaseError::PostDoesntExist)
+    }
+
+    #[test]
+    fn put_post_when_post_exists_should_return_error() {
+        let collection = collection(vec![some_raw_ref("1", "0", 10)]);
+        let mut db = LegacyDatabase::new(collection, dummy_chunk_processor());
+        let post = some_post("1", "0", "test");
+
+        let result = db.put_post(post);
+        assert_err!(result, LegacyDatabaseError::DuplicatePost)
+    }
+
+    //todo: upsert post + collecting chunk processor
 }
