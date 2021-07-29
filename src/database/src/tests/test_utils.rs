@@ -10,11 +10,30 @@ macro_rules! in_temp_dir {
     };
 }
 
+#[macro_export]
+macro_rules! assert_ok {
+    ($left:expr, $right:expr) => ({
+        assert!(matches!($left, Ok($right)))  
+    });
+
+    ($left:expr) => ({
+        assert!(matches!($left, Ok(())))
+    })
+}
+
+#[macro_export]
+macro_rules! assert_err {
+    ($left:expr, $error:path) => ({
+        assert!(matches!($left, Err($error)))  
+    });
+}
+
 use std::rc::Rc;
 
 use crate::{
     legacy_database::{
         self,
+        chunk::chunk_processor::ChunkCollectionProcessor,
         index::{
             db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
             diff::Diff,
@@ -121,4 +140,7 @@ pub fn collection_with_diff(
 ) -> DbRefCollection<CollectingDiffWithData> {
     DbRefCollection::new(IndexCollection { indexes: refs }).unwrap()
 }
+
 pub fn dummy_chunk_processor() -> DummyChunkProcessor {
+    DummyChunkProcessor
+}
