@@ -1,6 +1,13 @@
-use std::{io, rc::Rc};
+use std::io;
 
-use super::{chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError}, index::{DbRefCollection, db_post_ref::DbPostRef, diff::{Diff, DiffFileError}, serialized::IndexCollection}};
+use super::{
+    chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
+    index::{
+        diff::{Diff, DiffFileError},
+        serialized::IndexCollection,
+        DbRefCollection,
+    },
+};
 use crate::{post::Post, post_database::Database};
 
 use thiserror::Error;
@@ -35,7 +42,7 @@ pub enum LegacyDatabaseError {
     PostDoesntExist,
 
     #[error("Entry isn't deleted, but chunk settings are not specified. Entry hash: {0}")]
-    EntryCorrupted(String)
+    EntryCorrupted(String),
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -54,11 +61,9 @@ where
     LegacyDatabaseError: From<<TProcessor as ChunkCollectionProcessor>::Error>,
 {
     pub fn new(
-        index_file: std::fs::File,
+        reference: DbRefCollection<TDiff>,
         chunk_processor: TProcessor,
     ) -> LegacyDatabaseResult<Self> {
-        let index: IndexCollection = IndexCollection::from_file(index_file)?;
-        let reference = DbRefCollection::<TDiff>::new(index)?;
 
         Ok(LegacyDatabase {
             reference,
@@ -92,7 +97,6 @@ where
     type Error = LegacyDatabaseError;
 
     fn put_post(&mut self, post: Post) -> Result<(), LegacyDatabaseError> {
-        //todo allow_reput
         if self.reference.ref_exists(&post.hash) {
             return Err(LegacyDatabaseError::DuplicatePost);
         }
@@ -105,7 +109,7 @@ where
     fn get_post(&self, hash: String) -> Result<Option<Post>, LegacyDatabaseError> {
         let db_ref = match self.reference.get_ref(&hash) {
             Some(db_ref) => db_ref,
-            None => return Ok(None)
+            None => return Ok(None),
         };
 
         if db_ref.deleted {
@@ -116,12 +120,19 @@ where
             )));
         }
 
-        let chunk_settings = db_ref.chunk_settings.as_ref().ok_or_else(|| LegacyDatabaseError::EntryCorrupted(hash.clone()))?;
-        let post_message = self.chunk_processor.get_message(&chunk_settings, db_ref.length)?;
+        let chunk_settings = db_ref
+            .chunk_settings
+            .as_ref()
+            .ok_or_else(|| LegacyDatabaseError::EntryCorrupted(hash.clone()))?;
+
+        let post_message = self
+            .chunk_processor
+            .get_message(&chunk_settings, db_ref.length)?;
+
         Ok(Some(Post {
             hash,
             message: post_message,
-            reply_to: db_ref.parent_hash.to_string()
+            reply_to: db_ref.parent_hash.to_string(),
         }))
     }
 

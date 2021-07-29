@@ -33,7 +33,7 @@ pub enum OnDiskChunkCollectionProcessorError {
     },
 
     #[error("Error converting message bytes to utf8")]
-    Base64Error(#[from]string::FromUtf8Error)
+    Base64Error(#[from] string::FromUtf8Error),
 }
 
 impl<TChunk: ChunkTrait> OnDiskChunkCollectionProcessor<TChunk> {
@@ -85,7 +85,11 @@ impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProce
         Ok(())
     }
 
-    fn get_message(&self, chunk_settings: &ChunkSettings, len: u64) -> Result<PostMessage, Self::Error> {
+    fn get_message(
+        &self,
+        chunk_settings: &ChunkSettings,
+        len: u64,
+    ) -> Result<PostMessage, Self::Error> {
         let offset = chunk_settings.offset;
         let post_bytes = if self.last_chunk.index() == chunk_settings.chunk_index {
             self.last_chunk.read_data(offset, len)?
@@ -199,19 +203,21 @@ mod tests {
         let len = 321;
         let chunk_settings = ChunkSettings {
             chunk_index: 0,
-            offset
+            offset,
         };
 
         with_index(&mut chunk, 0);
-        chunk.expect_read_data().with(eq(chunk_settings.offset), eq(len)).times(1).return_once(|_, _| {
-            Ok("test".as_bytes().to_vec())
-        });
+        chunk
+            .expect_read_data()
+            .with(eq(chunk_settings.offset), eq(len))
+            .times(1)
+            .return_once(|_, _| Ok("test".as_bytes().to_vec()));
 
         let prcsrs = processor(chunk);
 
         prcsrs.get_message(&chunk_settings, len).unwrap();
     }
-    
+
     #[test]
     fn get_message_opens_new_chunk_if_chunk_index_is_different() {
         let mut chunk = mock();
@@ -219,40 +225,49 @@ mod tests {
         let len = 321;
         let chunk_settings = ChunkSettings {
             chunk_index: 1,
-            offset
+            offset,
         };
 
         with_index(&mut chunk, 0);
-        chunk.expect_read_data().with(eq(chunk_settings.offset), eq(len)).times(0);
+        chunk
+            .expect_read_data()
+            .with(eq(chunk_settings.offset), eq(len))
+            .times(0);
         let ctx = MockChunkTrait::open_without_sizecheck_context();
 
         ctx.expect().with(eq(1)).returning(move |_| {
             let mut new_chunk = mock();
-            new_chunk.expect_read_data().with(eq(offset), eq(len)).times(1).return_once(|_, _| {
-                Ok("test".as_bytes().to_vec())
-            });
+            new_chunk
+                .expect_read_data()
+                .with(eq(offset), eq(len))
+                .times(1)
+                .return_once(|_, _| Ok("test".as_bytes().to_vec()));
             Ok(new_chunk)
         });
 
         let processor = processor(chunk);
         processor.get_message(&chunk_settings, len).unwrap();
-
     }
 
     #[test]
     fn get_message_returns_valid_message() {
         let mut chunk = mock();
-        let settings = ChunkSettings { chunk_index: 0, offset:123 };
+        let settings = ChunkSettings {
+            chunk_index: 0,
+            offset: 123,
+        };
         let len = 321;
         with_index(&mut chunk, 0);
-        chunk.expect_read_data().with(eq(settings.offset), eq(len)).times(1).return_once(|_, _| {
-            Ok("test".as_bytes().to_vec())
-        });
+        chunk
+            .expect_read_data()
+            .with(eq(settings.offset), eq(len))
+            .times(1)
+            .return_once(|_, _| Ok("test".as_bytes().to_vec()));
         let expected_result = PostMessage::new("test".to_string());
         let processor = processor(chunk);
 
         let result = processor.get_message(&settings, len).unwrap();
-        
+
         assert_eq!(result, expected_result);
     }
 
@@ -268,7 +283,6 @@ mod tests {
         mock.expect_index().return_const(index);
     }
 
-    
     fn processor(c: MockChunkTrait) -> OnDiskChunkCollectionProcessor<MockChunkTrait> {
         OnDiskChunkCollectionProcessor { last_chunk: c }
     }

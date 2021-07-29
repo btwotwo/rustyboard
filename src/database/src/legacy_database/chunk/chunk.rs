@@ -68,7 +68,7 @@ pub type ChunkResult<T> = std::result::Result<T, ChunkError>;
 enum FileMode {
     Write,
     Append,
-    Read
+    Read,
 }
 
 impl ChunkTrait for Chunk {
@@ -214,7 +214,7 @@ impl Chunk {
         match mode {
             FileMode::Append => OpenOptions::new().append(true).open(&self.filename),
             FileMode::Write => OpenOptions::new().write(true).open(&self.filename),
-            FileMode::Read => OpenOptions::new().read(true).open(&self.filename)
+            FileMode::Read => OpenOptions::new().read(true).open(&self.filename),
         }
     }
 

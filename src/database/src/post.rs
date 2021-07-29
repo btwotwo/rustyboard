@@ -23,7 +23,6 @@ impl Post {
     pub fn get_message_bytes(&self) -> Vec<u8> {
         self.message.get_bytes()
     }
-
 }
 
 impl PostMessage {
