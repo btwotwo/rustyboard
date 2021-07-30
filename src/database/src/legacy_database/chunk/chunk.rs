@@ -1,10 +1,8 @@
-use base64::read;
 #[cfg(test)]
 use mockall::automock;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
 use std::io::Seek;
