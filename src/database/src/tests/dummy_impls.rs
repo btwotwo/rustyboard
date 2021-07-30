@@ -39,11 +39,13 @@ impl ChunkCollectionProcessor for DummyChunkProcessor {
         Ok(PostMessage::new("Msg".to_string()))
     }
 }
-    impl From<<DummyChunkProcessor as ChunkCollectionProcessor>::Error> for LegacyDatabaseError {
-        fn from(_: <DummyChunkProcessor as ChunkCollectionProcessor>::Error) -> Self {
-            LegacyDatabaseError::ChunkError {source: legacy_database::chunk::ChunkError::ChunkFileDoesNotExist}
+impl From<<DummyChunkProcessor as ChunkCollectionProcessor>::Error> for LegacyDatabaseError {
+    fn from(_: <DummyChunkProcessor as ChunkCollectionProcessor>::Error) -> Self {
+        LegacyDatabaseError::ChunkError {
+            source: legacy_database::chunk::ChunkError::ChunkFileDoesNotExist,
         }
     }
+}
 pub struct DummyDiff;
 impl Diff for DummyDiff {
     fn append(

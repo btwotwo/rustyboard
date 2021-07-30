@@ -62,10 +62,7 @@ where
     TProcessor: ChunkCollectionProcessor,
     TDiff: Diff,
 {
-    pub fn new(
-        reference: DbRefCollection<TDiff>,
-        chunk_processor: TProcessor,
-    ) -> Self {
+    pub fn new(reference: DbRefCollection<TDiff>, chunk_processor: TProcessor) -> Self {
         LegacyDatabase {
             reference,
             chunk_processor,
@@ -158,7 +155,7 @@ mod tests {
         let collection = collection(vec![some_raw_ref("1", "0", 10), some_raw_ref("2", "0", 15)]);
         let mut db = LegacyDatabase::new(collection, dummy_chunk_processor());
         let post = some_post("10", "0", "test");
-        
+
         let result = db.update_post(post);
         assert_err!(result, LegacyDatabaseError::PostDoesntExist)
     }

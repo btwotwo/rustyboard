@@ -12,20 +12,20 @@ macro_rules! in_temp_dir {
 
 #[macro_export]
 macro_rules! assert_ok {
-    ($left:expr, $right:expr) => ({
-        assert!(matches!($left, Ok($right)))  
-    });
+    ($left:expr, $right:expr) => {{
+        assert!(matches!($left, Ok($right)))
+    }};
 
-    ($left:expr) => ({
+    ($left:expr) => {{
         assert!(matches!($left, Ok(())))
-    })
+    }};
 }
 
 #[macro_export]
 macro_rules! assert_err {
-    ($left:expr, $error:path) => ({
-        assert!(matches!($left, Err($error)))  
-    });
+    ($left:expr, $error:path) => {{
+        assert!(matches!($left, Err($error)))
+    }};
 }
 
 use std::rc::Rc;
