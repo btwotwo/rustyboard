@@ -33,7 +33,6 @@ use std::rc::Rc;
 use crate::{
     legacy_database::{
         self,
-        chunk::chunk_processor::ChunkCollectionProcessor,
         index::{
             db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
             diff::Diff,

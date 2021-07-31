@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::{
     legacy_database::{
         self,
-        chunk::chunk_processor::{self, ChunkCollectionProcessor},
+        chunk::chunk_processor::ChunkCollectionProcessor,
         database::LegacyDatabaseError,
         index::{
             db_post_ref::{ChunkSettings, DbPostRef},

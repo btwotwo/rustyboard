@@ -4,7 +4,6 @@ use super::{
     chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
     index::{
         diff::{Diff, DiffFileError},
-        serialized::IndexCollection,
         DbRefCollection,
     },
 };
