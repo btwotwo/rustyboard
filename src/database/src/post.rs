@@ -8,7 +8,7 @@ pub struct Post {
     pub message: PostMessage,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct PostMessage(String);
 
 impl Post {
