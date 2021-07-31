@@ -63,13 +63,13 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     }
 
     /// Puts post into the database reference collection.
+
+    //todo: wrap into result and don't allow put duplicate non-deleted posts
     pub fn put_post(&mut self, post: Post) -> (DbPostRefHash, PostMessage) {
-    //todo investigate what happens with chunk when i'm inserting already existing post with changed message?
-    //answer: we can't do that. We only can update the post if it was deleted AND we're allowing the reput.
         let post_bytes = post.get_message_bytes();
         let hashes = PostHashes {
             hash: DbPostRefHash::new(post.hash),
-            parent: DbPostRefHash::new(post.reply_to),
+            parent: DbPostRefHash::new(post.reply_to)
         };
 
         let mut post_ref = DbPostRef {
@@ -97,6 +97,10 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
 
     pub fn ref_exists(&self, hash: &str) -> bool {
         self.refs.contains_key(&hash.to_string())
+    }
+
+    pub fn ref_deleted(&self, hash: &str) -> bool {
+        self.get_ref(hash).map_or(false, |val| val.deleted)
     }
 
     fn put_ref_into_free_chunk(&mut self, post_ref: &mut DbPostRef, post_bytes: &[u8]) {

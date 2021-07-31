@@ -42,6 +42,9 @@ pub enum LegacyDatabaseError {
 
     #[error("Entry isn't deleted, but chunk settings are not specified. Entry hash: {0}")]
     EntryCorrupted(String),
+
+    #[error("Can't update non-deleted post.")]
+    CantUpdateNonDeletedPost
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -103,6 +106,20 @@ where
         Ok(())
     }
 
+    fn update_post(&mut self, post: Post) -> Result<(), Self::Error> {
+        if !self.reference.ref_exists(&post.hash) {
+            return Err(LegacyDatabaseError::PostDoesntExist);
+        }
+
+        if !self.reference.ref_deleted(&post.hash) {
+            return Err(LegacyDatabaseError::CantUpdateNonDeletedPost)
+        }
+
+        self.upsert_post(post)?;
+
+        Ok(())
+    }
+
     fn get_post(&self, hash: String) -> Result<Option<Post>, LegacyDatabaseError> {
         let db_ref = match self.reference.get_ref(&hash) {
             Some(db_ref) => db_ref,
@@ -132,16 +149,6 @@ where
             reply_to: db_ref.parent_hash.to_string(),
         }))
     }
-
-    fn update_post(&mut self, post: Post) -> Result<(), Self::Error> {
-        if !self.reference.ref_exists(&post.hash) {
-            return Err(LegacyDatabaseError::PostDoesntExist);
-        }
-
-        self.upsert_post(post)?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -157,6 +164,16 @@ mod tests {
 
         let result = db.update_post(post);
         assert_err!(result, LegacyDatabaseError::PostDoesntExist)
+    }
+
+    #[test]
+    fn update_post_if_post_isnt_delete_should_return_error() {
+        let collection = collection(vec![some_raw_ref("1", "0", 10)]);
+        let mut db = LegacyDatabase::new(collection, dummy_chunk_processor());
+        let post = some_post("1", "0", "test2");
+
+        let result = db.update_post(post);
+        assert_err!(result, LegacyDatabaseError::CantUpdateNonDeletedPost)
     }
 
     #[test]
