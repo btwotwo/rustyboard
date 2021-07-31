@@ -64,6 +64,8 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
 
     /// Puts post into the database reference collection.
     pub fn put_post(&mut self, post: Post) -> (DbPostRefHash, PostMessage) {
+    //todo investigate what happens with chunk when i'm inserting already existing post with changed message?
+    //answer: we can't do that. We only can update the post if it was deleted AND we're allowing the reput.
         let post_bytes = post.get_message_bytes();
         let hashes = PostHashes {
             hash: DbPostRefHash::new(post.hash),
