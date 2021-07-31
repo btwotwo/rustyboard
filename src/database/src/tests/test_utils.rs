@@ -13,63 +13,59 @@ macro_rules! in_temp_dir {
 #[macro_export]
 macro_rules! assert_ok {
     ($left:expr, $right:expr) => {{
-        assert!(matches!($left, Ok($right)))
+        assert!(
+            matches!($left, Ok($right)),
+            "actual = {:?}, expected = {:?}",
+            $left,
+            $right
+        )
     }};
 
     ($left:expr) => {{
-        assert!(matches!($left, Ok(())))
+        assert!(
+            matches!($left, Ok(())),
+            "expected = Ok(()), actuale = {:?}",
+            $left
+        )
     }};
 }
 
 #[macro_export]
 macro_rules! assert_err {
     ($left:expr, $error:path) => {{
-        assert!(matches!($left, Err($error)))
+        assert!(
+            matches!($left, Err($error)),
+            "actual = {:?}, expected err = {:?}",
+            $left,
+            $error
+        );
     }};
 }
 
-use std::rc::Rc;
+#[macro_export]
+macro_rules! assert_none {
+    ($item:expr) => {
+        assert!(
+            matches!($item, None),
+            "actual = {:?}, expected None",
+            $item
+        )
+    };
+}
+
+use std::{collections::HashMap, default, rc::Rc};
 
 use crate::{
-    legacy_database::{
-        self,
-        index::{
-            db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
-            diff::Diff,
-            serialized::{DbPostRefSerialized, IndexCollection, PostHashes},
-            DbRefCollection,
-        },
+    legacy_database::index::{
+        db_post_ref::{ChunkSettings, DbPostRef, DbPostRefHash},
+        serialized::{DbPostRefSerialized, IndexCollection},
+        DbRefCollection,
     },
     post::{Post, PostMessage},
 };
 
+pub use super::collecting_impls::*;
 pub use super::dummy_impls::*;
-
-pub struct CollectingDiffWithData {
-    pub data: Vec<DbPostRefSerialized>,
-}
-
-impl Diff for CollectingDiffWithData {
-    fn append(
-        &mut self,
-        hashes: &PostHashes,
-        db_ref: &DbPostRef,
-    ) -> legacy_database::index::diff::DiffResult<()> {
-        self.data.push(DbPostRefSerialized::new(hashes, db_ref));
-        Ok(())
-    }
-
-    fn drain() -> legacy_database::index::diff::DiffResult<(Self, Vec<DbPostRefSerialized>)> {
-        let ref_1 = some_raw_ref("1", "0", 10);
-        let ref_2 = some_raw_ref("2", "1", 5);
-        let ref_3 = some_raw_ref("3", "1", 10);
-
-        Ok((
-            CollectingDiffWithData { data: Vec::new() },
-            vec![ref_1, ref_2, ref_3],
-        ))
-    }
-}
 
 pub fn rc(hash: &str) -> DbPostRefHash {
     Rc::new(hash.to_string())
@@ -142,4 +138,11 @@ pub fn collection_with_diff(
 
 pub fn dummy_chunk_processor() -> DummyChunkProcessor {
     DummyChunkProcessor
+}
+
+pub fn collecting_chunk_processor() -> CollectingChunkProcessor {
+    CollectingChunkProcessor {
+        data: HashMap::new(),
+        offset: 0,
+    }
 }
