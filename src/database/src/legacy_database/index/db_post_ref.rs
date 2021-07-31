@@ -5,7 +5,7 @@ use crate::legacy_database::chunk::ChunkIndex;
 /// Post hash, immutable
 pub type DbPostRefHash = Rc<String>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct ChunkSettings {
     /// Post's chunk index
     pub chunk_index: ChunkIndex,
