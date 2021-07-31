@@ -147,7 +147,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert_err, tests::test_utils::*};
+    use crate::{assert_err, legacy_database::index::db_post_ref::ChunkSettings, post::PostMessage, tests::test_utils::*};
 
     #[test]
     fn update_post_if_post_doesnt_exist_should_return_error() {
@@ -169,5 +169,58 @@ mod tests {
         assert_err!(result, LegacyDatabaseError::DuplicatePost)
     }
 
+    #[test]
+    fn upsert_post_should_put_into_db_ref_collection() {
+        let processor = dummy_chunk_processor();
+        let collection = collection(vec![some_raw_ref("1", "0", 10)]);
+        let post = some_post("5", "10", "test");
+        let mut db = LegacyDatabase::new(collection, processor);
+
+        db.upsert_post(post).unwrap();
+
+        let db_ref = db.reference.get_ref("5").unwrap();
+        assert_eq!(db_ref.parent_hash, rc("10"));
+        assert_eq!(db_ref.length, 4);
+    }
+
+    #[test]
+    fn upsert_post_if_no_chunk_set_should_put_into_chunk_and_update_db_ref() {
+        let processor = collecting_chunk_processor();
+        let collection = collection(vec![]);
+        let post = some_post("5", "0", "test");
+        let mut db = LegacyDatabase::new(collection, processor);
+
+        db.upsert_post(post).unwrap();
+
+        let expected_chunk_settings = ChunkSettings {
+            chunk_index: 0,offset:0
+        };
+        let collected = db.chunk_processor.data.get(&expected_chunk_settings).unwrap();
+        let db_ref = db.reference.get_ref("5").unwrap();
+
+        assert_eq!(collected, &PostMessage::new("test".to_string()));
+        assert_eq!(db_ref.chunk_settings.as_ref().unwrap(), &expected_chunk_settings);
+    }
+
+    #[test]
+    fn upsert_post_when_chunk_is_set_should_write_into_existing_chunk() {
+        let processor = collecting_chunk_processor();
+        let mut deleted_ref = some_raw_deleted_ref("1", "0", 9999);
+        deleted_ref.chunk_name = Some("10.db3".to_string());
+        let collection = collection(vec![deleted_ref]);
+        let post = some_post("1", "0", "test");
+
+        let mut db = LegacyDatabase::new(collection, processor);
+        db.upsert_post(post).unwrap();
+        
+        let expected_chunk_settings = ChunkSettings {
+            chunk_index: 10,
+            offset: 1
+        };
+        let expected_post = PostMessage::new("test".to_string());
+        let collected = db.chunk_processor.data.get(&expected_chunk_settings).unwrap();
+
+        assert_eq!(collected, &expected_post);
+    }
     //todo: upsert post + collecting chunk processor
 }
