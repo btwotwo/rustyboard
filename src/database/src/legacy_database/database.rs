@@ -1,12 +1,6 @@
 use std::io;
 
-use super::{
-    chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
-    index::{
-        diff::{Diff, DiffFileError},
-        DbRefCollection,
-    },
-};
+use super::{chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError}, index::{DbRefCollection, DbRefCollectionError, diff::{Diff, DiffFileError}}};
 use crate::{post::Post, post_database::Database};
 
 use thiserror::Error;
@@ -45,6 +39,9 @@ pub enum LegacyDatabaseError {
 
     #[error("Can't update non-deleted post.")]
     CantUpdateNonDeletedPost,
+
+    #[error("Error processing DbReferenceCollection")]
+    DbRefCollectionError(#[from]DbRefCollectionError)
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -73,7 +70,7 @@ where
 
     fn upsert_post(&mut self, post: Post) -> Result<(), LegacyDatabaseError> {
         //todo validate post
-        let (hash, message) = self.reference.put_post(post);
+        let (hash, message) = self.reference.put_post(post)?;
         let db_ref = self.reference.get_ref_mut(&hash).unwrap();
         match &db_ref.chunk_settings {
             Some(settings) => {

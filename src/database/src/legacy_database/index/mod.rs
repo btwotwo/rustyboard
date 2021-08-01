@@ -9,6 +9,7 @@ use std::{
 };
 
 use crate::post::{Post, PostMessage};
+use thiserror::Error;
 
 use self::{
     db_post_ref::{DbPostRef, DbPostRefHash},
@@ -21,6 +22,17 @@ pub type RepliesHashMap = HashMap<DbPostRefHash, Vec<DbPostRefHash>>;
 pub type OrderedHashes = Vec<DbPostRefHash>;
 pub type DeletedPosts = HashSet<DbPostRefHash>;
 pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
+ 
+#[derive(Debug, Error)]
+pub enum DbRefCollectionError {
+    #[error("Error appending to diff")]
+    DiffError(#[from]DiffFileError),
+
+    #[error("Can't insert duplicate non-deleted posts")]
+    DuplicatePostError
+}
+
+pub type DbRefCollectionResult<T> = Result<T, DbRefCollectionError>;
 
 /// Post references collection
 pub struct DbRefCollection<TDiff: Diff> {
@@ -44,7 +56,7 @@ pub struct DbRefCollection<TDiff: Diff> {
 
 impl<TDiff: Diff> DbRefCollection<TDiff> {
     /// Constructs reference collection from raw deserialized database references.
-    pub fn new(index_collection: IndexCollection) -> Result<Self, DiffFileError> {
+    pub fn new(index_collection: IndexCollection) -> DbRefCollectionResult<Self> {
         let (diff, diff_collection) = TDiff::drain()?;
         let mut refr = DbRefCollection {
             diff,
@@ -65,7 +77,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     /// Puts post into the database reference collection.
 
     //todo: wrap into result and don't allow put duplicate non-deleted posts
-    pub fn put_post(&mut self, post: Post) -> (DbPostRefHash, PostMessage) {
+    pub fn put_post(&mut self, post: Post) -> DbRefCollectionResult<(DbPostRefHash, PostMessage)> {
         let post_bytes = post.get_message_bytes();
         let hashes = PostHashes {
             hash: DbPostRefHash::new(post.hash),
@@ -82,9 +94,9 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         self.put_ref_into_free_chunk(&mut post_ref, &post_bytes);
         self.upsert_ref(&hashes, post_ref);
         self.diff
-            .append(&hashes, self.refs.get(&hashes.hash).unwrap());
+            .append(&hashes, self.refs.get(&hashes.hash).unwrap())?;
 
-        (hashes.hash, post.message)
+        Ok((hashes.hash, post.message))
     }
 
     pub fn get_ref_mut(&mut self, hash: &str) -> Option<&mut DbPostRef> {

@@ -73,7 +73,7 @@ fn put_post_should_return_empty_chunk_if_no_free_space_was_found() {
         parent_hash: rc("0"),
     };
 
-    let (hash, _) = col.put_post(post);
+    let (hash, _) = col.put_post(post).unwrap();
     let db_ref = &col.refs[&hash];
 
     assert_eq!(db_ref, &expected_db_ref);
@@ -105,7 +105,7 @@ fn put_post_should_return_free_chunk_name_and_offset_if_free_space_found() {
         deleted: false,
         parent_hash: rc("0"),
     };
-    let (hash, _) = col.put_post(post);
+    let (hash, _) = col.put_post(post).unwrap();
     let db_ref = &col.refs[&hash];
 
     assert_eq!(db_ref, &expected_db_ref)
