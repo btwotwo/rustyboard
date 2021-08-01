@@ -45,11 +45,7 @@ macro_rules! assert_err {
 #[macro_export]
 macro_rules! assert_none {
     ($item:expr) => {
-        assert!(
-            matches!($item, None),
-            "actual = {:?}, expected None",
-            $item
-        )
+        assert!(matches!($item, None), "actual = {:?}, expected None", $item)
     };
 }
 

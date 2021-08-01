@@ -44,7 +44,7 @@ pub enum LegacyDatabaseError {
     EntryCorrupted(String),
 
     #[error("Can't update non-deleted post.")]
-    CantUpdateNonDeletedPost
+    CantUpdateNonDeletedPost,
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -112,7 +112,7 @@ where
         }
 
         if !self.reference.ref_deleted(&post.hash) {
-            return Err(LegacyDatabaseError::CantUpdateNonDeletedPost)
+            return Err(LegacyDatabaseError::CantUpdateNonDeletedPost);
         }
 
         self.upsert_post(post)?;
@@ -154,7 +154,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert_err, legacy_database::index::db_post_ref::ChunkSettings, post::PostMessage, tests::test_utils::*};
+    use crate::{
+        assert_err, legacy_database::index::db_post_ref::ChunkSettings, post::PostMessage,
+        tests::test_utils::*,
+    };
 
     #[test]
     fn update_post_if_post_doesnt_exist_should_return_error() {
@@ -167,7 +170,7 @@ mod tests {
     }
 
     #[test]
-    fn update_post_if_post_isnt_delete_should_return_error() {
+    fn update_post_if_post_isnt_deleted_should_return_error() {
         let collection = collection(vec![some_raw_ref("1", "0", 10)]);
         let mut db = LegacyDatabase::new(collection, dummy_chunk_processor());
         let post = some_post("1", "0", "test2");
@@ -210,13 +213,21 @@ mod tests {
         db.upsert_post(post).unwrap();
 
         let expected_chunk_settings = ChunkSettings {
-            chunk_index: 0,offset:0
+            chunk_index: 0,
+            offset: 0,
         };
-        let collected = db.chunk_processor.data.get(&expected_chunk_settings).unwrap();
+        let collected = db
+            .chunk_processor
+            .data
+            .get(&expected_chunk_settings)
+            .unwrap();
         let db_ref = db.reference.get_ref("5").unwrap();
 
         assert_eq!(collected, &PostMessage::new("test".to_string()));
-        assert_eq!(db_ref.chunk_settings.as_ref().unwrap(), &expected_chunk_settings);
+        assert_eq!(
+            db_ref.chunk_settings.as_ref().unwrap(),
+            &expected_chunk_settings
+        );
     }
 
     #[test]
@@ -229,13 +240,17 @@ mod tests {
 
         let mut db = LegacyDatabase::new(collection, processor);
         db.upsert_post(post).unwrap();
-        
+
         let expected_chunk_settings = ChunkSettings {
             chunk_index: 10,
-            offset: 1
+            offset: 1,
         };
         let expected_post = PostMessage::new("test".to_string());
-        let collected = db.chunk_processor.data.get(&expected_chunk_settings).unwrap();
+        let collected = db
+            .chunk_processor
+            .data
+            .get(&expected_chunk_settings)
+            .unwrap();
 
         assert_eq!(collected, &expected_post);
     }

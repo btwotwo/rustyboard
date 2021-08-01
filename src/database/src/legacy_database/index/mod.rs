@@ -69,7 +69,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         let post_bytes = post.get_message_bytes();
         let hashes = PostHashes {
             hash: DbPostRefHash::new(post.hash),
-            parent: DbPostRefHash::new(post.reply_to)
+            parent: DbPostRefHash::new(post.reply_to),
         };
 
         let mut post_ref = DbPostRef {
