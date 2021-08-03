@@ -22,11 +22,7 @@ macro_rules! assert_ok {
     }};
 
     ($left:expr) => {{
-        assert!(
-            matches!($left, Ok(())),
-            "expected = Ok(()), actuale = {:?}",
-            $left
-        )
+        assert!($left.is_ok(), "expected = Ok, actual = {:?}", $left)
     }};
 }
 
