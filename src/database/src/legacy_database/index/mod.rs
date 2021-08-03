@@ -30,6 +30,12 @@ pub enum DbRefCollectionError {
 
     #[error("Can't insert duplicate non-deleted posts")]
     DuplicatePostError,
+
+    #[error("DbRef doesn't exist")]
+    RefDoesNotExist,
+
+    #[error("Trying to delete already deleted ref")]
+    RefAlreadyDeleted,
 }
 
 pub type DbRefCollectionResult<T> = Result<T, DbRefCollectionError>;
@@ -99,6 +105,35 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         Ok((hashes.hash, post.message))
     }
 
+    pub fn delete_post(&mut self, hash: &str) -> DbRefCollectionResult<()> {
+        let db_ref = match self.get_ref_mut(&hash) {
+            None => Err(DbRefCollectionError::RefDoesNotExist),
+            Some(db_ref) => {
+                if db_ref.deleted {
+                    Err(DbRefCollectionError::RefAlreadyDeleted)
+                } else {
+                    Ok(db_ref)
+                }
+            }
+        }?;
+        db_ref.deleted = true;
+
+        let db_ref = self.get_ref(&hash).unwrap();
+        let hash = self.get_rc(Rc::new(hash.to_string()));
+        let parent = db_ref.parent_hash.clone();
+        self.diff.append(
+            &PostHashes {
+                hash: hash.clone(),
+                parent,
+            },
+            db_ref,
+        )?;
+        self.deleted.insert(hash.clone());
+        self.free.insert(hash.clone());
+
+        Ok(())
+    }
+
     pub fn get_ref_mut(&mut self, hash: &str) -> Option<&mut DbPostRef> {
         self.refs.get_mut(&hash.to_string())
     }
@@ -142,7 +177,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     /// If ref is already in the collection, updates it and updates diff
     fn upsert_ref(&mut self, hashes: &PostHashes, post: DbPostRef) {
         let hash_rc = &hashes.hash;
-        let parent_rc = self.get_parent_rc(Rc::clone(&hashes.parent));
+        let parent_rc = self.get_rc(Rc::clone(&hashes.parent));
 
         let is_presented = self.refs.contains_key(hash_rc);
         let parent_post_replies = self.reply_refs.entry(parent_rc).or_insert_with(Vec::new);
@@ -203,7 +238,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         best
     }
 
-    fn get_parent_rc(&self, parent: DbPostRefHash) -> DbPostRefHash {
+    fn get_rc(&self, parent: DbPostRefHash) -> DbPostRefHash {
         let kv = self.refs.get_key_value(&parent);
 
         match kv {
