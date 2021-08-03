@@ -1,9 +1,11 @@
 use pretty_assertions::assert_eq;
 
 use crate::{
+    assert_err, assert_ok,
     legacy_database::index::{
         db_post_ref::{ChunkSettings, DbPostRef},
         serialized::PostHashes,
+        DbRefCollectionError,
     },
     post::{Post, PostMessage},
 };
@@ -167,6 +169,26 @@ fn upsert_ref_should_update_existing_data() {
     assert_eq!(coll.refs[&rc("1")].deleted, true);
     assert_eq!(coll.refs[&rc("1")].length, 100);
     assert!(coll.deleted.contains(&rc("1")));
+}
+
+#[test]
+fn put_should_not_allow_update_undeleted_posts() {
+    let db_ref = some_raw_ref("1", "0", 10);
+    let mut coll = collection(vec![db_ref]);
+    let post = some_post("1", "0", "test");
+
+    let result = coll.put_post(post);
+    assert_err!(result, DbRefCollectionError::DuplicatePostError)
+}
+
+#[test]
+fn put_should_allow_update_deleted_posts() {
+    let deleted_ref = some_raw_deleted_ref("1", "0", 10);
+    let mut coll = collection(vec![deleted_ref]);
+    let post = some_post("1", "0", "test");
+
+    let result = coll.put_post(post);
+    assert_ok!(result);
 }
 
 fn message() -> PostMessage {

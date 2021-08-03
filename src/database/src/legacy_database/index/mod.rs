@@ -22,14 +22,14 @@ pub type RepliesHashMap = HashMap<DbPostRefHash, Vec<DbPostRefHash>>;
 pub type OrderedHashes = Vec<DbPostRefHash>;
 pub type DeletedPosts = HashSet<DbPostRefHash>;
 pub type FreeSpaceHashes = HashSet<DbPostRefHash>;
- 
+
 #[derive(Debug, Error)]
 pub enum DbRefCollectionError {
     #[error("Error appending to diff")]
-    DiffError(#[from]DiffFileError),
+    DiffError(#[from] DiffFileError),
 
     #[error("Can't insert duplicate non-deleted posts")]
-    DuplicatePostError
+    DuplicatePostError,
 }
 
 pub type DbRefCollectionResult<T> = Result<T, DbRefCollectionError>;
@@ -75,14 +75,14 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     }
 
     /// Puts post into the database reference collection.
-
-    //todo: wrap into result and don't allow put duplicate non-deleted posts
     pub fn put_post(&mut self, post: Post) -> DbRefCollectionResult<(DbPostRefHash, PostMessage)> {
         let post_bytes = post.get_message_bytes();
         let hashes = PostHashes {
             hash: DbPostRefHash::new(post.hash),
             parent: DbPostRefHash::new(post.reply_to),
         };
+
+        self.validate_post_not_exist_or_deleted(&hashes)?;
 
         let mut post_ref = DbPostRef {
             chunk_settings: None,
@@ -216,6 +216,20 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         for ser_post in posts {
             let (raw_hashes, data) = ser_post.split();
             self.upsert_ref(&raw_hashes, data);
+        }
+    }
+
+    fn validate_post_not_exist_or_deleted(&self, hashes: &PostHashes) -> DbRefCollectionResult<()> {
+        let db_ref = self.get_ref(&hashes.hash);
+        match db_ref {
+            None => Ok(()),
+            Some(post) => {
+                if post.deleted {
+                    Ok(())
+                } else {
+                    Err(DbRefCollectionError::DuplicatePostError)
+                }
+            }
         }
     }
 }
