@@ -17,6 +17,8 @@ pub trait ChunkCollectionProcessor {
         post: &PostMessage,
     ) -> Result<(), Self::Error>;
 
+    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error>;
+
     fn get_message(&self, chunk: &ChunkSettings, len: u64) -> Result<PostMessage, Self::Error>;
 }
 
