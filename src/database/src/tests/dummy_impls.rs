@@ -49,7 +49,7 @@ impl From<<DummyChunkProcessor as ChunkCollectionProcessor>::Error> for LegacyDa
 pub struct DummyDiff;
 impl Diff for DummyDiff {
     fn append(
-        &mut self,
+        &self,
         _hashes: &legacy_database::index::serialized::PostHashes,
         _db_ref: &DbPostRef,
     ) -> legacy_database::index::diff::DiffResult<()> {
