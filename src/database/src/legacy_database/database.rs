@@ -1,6 +1,12 @@
 use std::io;
 
-use super::{chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError}, index::{DbRefCollection, DbRefCollectionError, diff::{Diff, DiffFileError}}};
+use super::{
+    chunk::{chunk_processor::ChunkCollectionProcessor, ChunkError},
+    index::{
+        diff::{Diff, DiffFileError},
+        DbRefCollection, DbRefCollectionError,
+    },
+};
 use crate::{post::Post, post_database::Database};
 
 use thiserror::Error;
@@ -41,7 +47,7 @@ pub enum LegacyDatabaseError {
     CantUpdateNonDeletedPost,
 
     #[error("Error processing DbReferenceCollection")]
-    DbRefCollectionError(#[from]DbRefCollectionError)
+    DbRefCollectionError(#[from] DbRefCollectionError),
 }
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
@@ -145,6 +151,18 @@ where
             message: post_message,
             reply_to: db_ref.parent_hash.to_string(),
         }))
+    }
+
+    fn delete_post(&mut self, hash: String) -> Result<(), Self::Error> {
+        self.reference.delete_post(&hash)?;
+        let chunk_settings = match self.reference.get_ref(&hash).unwrap().chunk_settings {
+            None => return Ok(()),
+            Some(c) => c,
+        };
+
+        self.chunk_processor.remove(&chunk_settings)?;
+
+        todo!("Add tests and delete functionality for chunk processor, for reference collection, for database.")
     }
 }
 
@@ -251,5 +269,4 @@ mod tests {
 
         assert_eq!(collected, &expected_post);
     }
-    //todo: upsert post + collecting chunk processor
 }
