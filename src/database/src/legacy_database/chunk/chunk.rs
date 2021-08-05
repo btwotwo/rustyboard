@@ -28,7 +28,7 @@ pub trait ChunkTrait {
 
     fn try_append_data(&mut self, data: &[u8]) -> ChunkResult<Offset>;
     fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()>;
-
+    fn remove_data(&mut self, offset: Offset, length: u64) -> ChunkResult<()>;
     fn open_without_sizecheck(index: ChunkIndex) -> ChunkResult<Self>
     where
         Self: Sized;
@@ -40,6 +40,7 @@ pub trait ChunkTrait {
     fn index(&self) -> ChunkIndex;
 
     fn read_data(&self, offset: Offset, length: u64) -> ChunkResult<Vec<u8>>;
+
 }
 #[derive(Debug)]
 pub struct Chunk {
@@ -96,6 +97,15 @@ impl ChunkTrait for Chunk {
     fn try_write_data(&mut self, data: &[u8], offset: Offset) -> ChunkResult<()> {
         let file = self.get_file(FileMode::Write)?;
         file.write_all_at(data, offset)?;
+        Ok(())
+    }
+
+    /// Replaces bytes in given offset with zeros
+    fn remove_data(&mut self, offset: Offset, length: u64) -> ChunkResult<()> {
+        let mut file = self.get_file(FileMode::Write)?;
+        let zeros = vec![0; length as usize];
+        self.try_write_data(&zeros, offset)?;
+
         Ok(())
     }
 
@@ -407,6 +417,24 @@ mod tests {
 
                     let res = chunk.read_data(3, 3).unwrap();
                     assert_eq!(res, vec![4,5,6]);
+                });
+            }
+        }
+    }
+
+    mod remove {
+        use super::*;
+
+        rusty_fork_test! {
+            #[test]
+            fn remove_data_replaces_data_in_given_offset_and_length_with_zeros() {
+                in_temp_dir!({
+                    File::create("0.db3").unwrap().write_all(&[0,1,2,3,4,5,6,7]).unwrap();
+                    let mut chunk = Chunk::open_without_sizecheck(0).unwrap();
+
+                    chunk.remove_data(2, 3);
+                    let file_contents = fs::read("0.db3").unwrap();
+                    assert_eq!(file_contents, vec![0,1,0,0,0,4,5,6,7]);
                 });
             }
         }

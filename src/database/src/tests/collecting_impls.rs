@@ -20,7 +20,7 @@ pub struct CollectingDiffWithData {
 
 impl Diff for CollectingDiffWithData {
     fn append(
-        &mut self,
+        &self,
         hashes: &PostHashes,
         db_ref: &DbPostRef,
     ) -> legacy_database::index::diff::DiffResult<()> {
@@ -70,5 +70,10 @@ impl ChunkCollectionProcessor for CollectingChunkProcessor {
 
     fn get_message(&self, chunk: &ChunkSettings, _len: u64) -> Result<PostMessage, Self::Error> {
         Ok(self.data.get(&chunk).unwrap().clone())
+    }
+
+    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error> {
+        self.data.remove(chunk);
+        Ok(())
     }
 }

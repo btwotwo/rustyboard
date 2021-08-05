@@ -38,6 +38,10 @@ impl ChunkCollectionProcessor for DummyChunkProcessor {
     fn get_message(&self, _chunk: &ChunkSettings, _len: u64) -> Result<PostMessage, Self::Error> {
         Ok(PostMessage::new("Msg".to_string()))
     }
+
+    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 impl From<<DummyChunkProcessor as ChunkCollectionProcessor>::Error> for LegacyDatabaseError {
     fn from(_: <DummyChunkProcessor as ChunkCollectionProcessor>::Error) -> Self {

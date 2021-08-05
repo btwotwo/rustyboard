@@ -103,15 +103,18 @@ impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProce
 
         Ok(post_message)
     }
+
+    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error> {
+        let file = TChunk::open_without_sizecheck(chunk.chunk_index);
+        todo!();
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::os::unix::process;
-
     use super::*;
     use crate::legacy_database::chunk::chunk::*;
-    use mockall::{automock, mock, predicate::*};
+    use mockall::predicate::*;
 
     #[test]
     fn extend_assigns_chunk_to_self_last_chunk() {
