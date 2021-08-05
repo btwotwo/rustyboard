@@ -117,16 +117,15 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
             }
         }?;
         db_ref.deleted = true;
-
-        let db_ref = self.get_ref(&hash).unwrap();
-        let hash = self.get_rc(Rc::new(hash.to_string()));
+        let hash = Rc::new(hash.to_string());
         let parent = db_ref.parent_hash.clone();
+
         self.diff.append(
             &PostHashes {
                 hash: hash.clone(),
                 parent,
             },
-            db_ref,
+            &self.get_ref(&hash).unwrap()
         )?;
         self.deleted.insert(hash.clone());
         self.free.insert(hash.clone());

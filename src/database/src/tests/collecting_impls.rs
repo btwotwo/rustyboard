@@ -20,7 +20,7 @@ pub struct CollectingDiffWithData {
 
 impl Diff for CollectingDiffWithData {
     fn append(
-        &self,
+        &mut self,
         hashes: &PostHashes,
         db_ref: &DbPostRef,
     ) -> legacy_database::index::diff::DiffResult<()> {

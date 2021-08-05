@@ -155,7 +155,7 @@ where
 
     fn delete_post(&mut self, hash: String) -> Result<(), Self::Error> {
         self.reference.delete_post(&hash)?;
-        let chunk_settings = match self.reference.get_ref(&hash).unwrap().chunk_settings {
+        let chunk_settings = match &self.reference.get_ref(&hash).unwrap().chunk_settings {
             None => return Ok(()),
             Some(c) => c,
         };

@@ -24,7 +24,7 @@ pub enum DiffFileError {
 pub type DiffResult<T> = Result<T, DiffFileError>;
 
 pub trait Diff: Sized {
-    fn append(&self, hashes: &PostHashes, db_ref: &DbPostRef) -> DiffResult<()>;
+    fn append(&mut self, hashes: &PostHashes, db_ref: &DbPostRef) -> DiffResult<()>;
 
     fn drain() -> DiffResult<(Self, Vec<DbPostRefSerialized>)>;
 }
@@ -52,7 +52,7 @@ impl DiffFile {
 }
 
 impl Diff for DiffFile {
-    fn append(&self, hashes: &PostHashes, db_ref: &DbPostRef) -> DiffResult<()> {
+    fn append(&mut self, hashes: &PostHashes, db_ref: &DbPostRef) -> DiffResult<()> {
         let serialized_obj = DbPostRefSerialized::new(hashes, db_ref);
         let serialized_string = serialized_obj.serialize()?;
         let mut file = Self::create_file()?;
