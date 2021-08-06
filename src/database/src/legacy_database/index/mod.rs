@@ -106,7 +106,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
     }
 
     pub fn delete_post(&mut self, hash: &str) -> DbRefCollectionResult<()> {
-        let db_ref = match self.get_ref_mut(&hash) {
+        let db_ref = match self.refs.get_mut(&Rc::new(hash.to_string())) {
             None => Err(DbRefCollectionError::RefDoesNotExist),
             Some(db_ref) => {
                 if db_ref.deleted {
@@ -125,8 +125,9 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
                 hash: hash.clone(),
                 parent,
             },
-            &self.get_ref(&hash).unwrap()
+            db_ref,
         )?;
+
         self.deleted.insert(hash.clone());
         self.free.insert(hash.clone());
 

@@ -40,7 +40,6 @@ pub trait ChunkTrait {
     fn index(&self) -> ChunkIndex;
 
     fn read_data(&self, offset: Offset, length: u64) -> ChunkResult<Vec<u8>>;
-
 }
 #[derive(Debug)]
 pub struct Chunk {
@@ -432,9 +431,9 @@ mod tests {
                     File::create("0.db3").unwrap().write_all(&[0,1,2,3,4,5,6,7]).unwrap();
                     let mut chunk = Chunk::open_without_sizecheck(0).unwrap();
 
-                    chunk.remove_data(2, 3);
+                    chunk.remove_data(2, 3).unwrap();
                     let file_contents = fs::read("0.db3").unwrap();
-                    assert_eq!(file_contents, vec![0,1,0,0,0,4,5,6,7]);
+                    assert_eq!(file_contents, vec![0,1,0,0,0,5,6,7]);
                 });
             }
         }
