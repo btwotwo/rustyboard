@@ -52,7 +52,7 @@ pub enum LegacyDatabaseError {
 
 pub type LegacyDatabaseResult<T> = Result<T, LegacyDatabaseError>;
 
-struct LegacyDatabase<TProcessor, TDiff>
+pub struct LegacyDatabase<TProcessor, TDiff>
 where
     TProcessor: ChunkCollectionProcessor,
     TDiff: Diff,
