@@ -39,7 +39,7 @@ impl ChunkCollectionProcessor for DummyChunkProcessor {
         Ok(PostMessage::new("Msg".to_string()))
     }
 
-    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error> {
+    fn remove(&mut self, chunk: &ChunkSettings, len: u64) -> Result<(), Self::Error> {
         Ok(())
     }
 }

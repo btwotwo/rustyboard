@@ -72,7 +72,7 @@ impl ChunkCollectionProcessor for CollectingChunkProcessor {
         Ok(self.data.get(&chunk).unwrap().clone())
     }
 
-    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error> {
+    fn remove(&mut self, chunk: &ChunkSettings, _len: u64) -> Result<(), Self::Error> {
         self.data.remove(chunk);
         Ok(())
     }
