@@ -101,7 +101,6 @@ impl ChunkTrait for Chunk {
 
     /// Replaces bytes in given offset with zeros
     fn remove_data(&mut self, offset: Offset, length: u64) -> ChunkResult<()> {
-        let mut file = self.get_file(FileMode::Write)?;
         let zeros = vec![0; length as usize];
         self.try_write_data(&zeros, offset)?;
 

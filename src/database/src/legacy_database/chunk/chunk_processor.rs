@@ -17,7 +17,7 @@ pub trait ChunkCollectionProcessor {
         post: &PostMessage,
     ) -> Result<(), Self::Error>;
 
-    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error>;
+    fn remove(&mut self, chunk: &ChunkSettings, len: u64) -> Result<(), Self::Error>;
 
     fn get_message(&self, chunk: &ChunkSettings, len: u64) -> Result<PostMessage, Self::Error>;
 }
@@ -104,9 +104,9 @@ impl<TChunk: ChunkTrait> ChunkCollectionProcessor for OnDiskChunkCollectionProce
         Ok(post_message)
     }
 
-    fn remove(&mut self, chunk: &ChunkSettings) -> Result<(), Self::Error> {
-        let file = TChunk::open_without_sizecheck(chunk.chunk_index);
-        todo!();
+    fn remove(&mut self, chunk: &ChunkSettings, len: u64) -> Result<(), Self::Error> {
+        TChunk::open_without_sizecheck(chunk.chunk_index)?.remove_data(chunk.offset, len)?;
+        Ok(())
     }
 }
 

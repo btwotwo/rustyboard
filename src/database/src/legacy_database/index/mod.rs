@@ -105,7 +105,7 @@ impl<TDiff: Diff> DbRefCollection<TDiff> {
         Ok((hashes.hash, post.message))
     }
 
-    pub fn delete_post(&mut self, hash: &str) -> DbRefCollectionResult<()> {
+    pub fn mark_post_as_deleted(&mut self, hash: &str) -> DbRefCollectionResult<()> {
         let db_ref = match self.refs.get_mut(&Rc::new(hash.to_string())) {
             None => Err(DbRefCollectionError::RefDoesNotExist),
             Some(db_ref) => {

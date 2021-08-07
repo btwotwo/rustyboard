@@ -154,15 +154,15 @@ where
     }
 
     fn delete_post(&mut self, hash: String) -> Result<(), Self::Error> {
-        self.reference.delete_post(&hash)?;
-        let chunk_settings = match &self.reference.get_ref(&hash).unwrap().chunk_settings {
-            None => return Ok(()),
-            Some(c) => c,
+        self.reference.mark_post_as_deleted(&hash)?;
+        let db_ref = self.reference.get_ref(&hash).unwrap();
+        let settings = match &db_ref.chunk_settings {
+            Some(s) => s,
+            None => return Ok(())
         };
-
-        self.chunk_processor.remove(&chunk_settings)?;
-
-        todo!("Add tests and delete functionality for chunk processor, for reference collection, for database.")
+        
+        self.chunk_processor.remove(settings, db_ref.length)?;
+        Ok(())
     }
 }
 
