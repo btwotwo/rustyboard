@@ -31,7 +31,7 @@ Since it's a learning and rewriting project, there's still much to implement:
 
 ### Core parts
 - [x] PNG steganography tool
-- [ ] Posts database with legacy (old nanoboard project) database support
+- [x] Posts database with legacy (old nanoboard project) database support (currently only CRUD operations)
 - [ ] Handling of captcha, POW and posts signature
 - [ ] Nanoposts encoding and decoding
 
