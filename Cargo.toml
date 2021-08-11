@@ -7,5 +7,6 @@ edition = "2018"
 [workspace]
 members = [
     "src/png_stego",
-    "src/database"
+    "src/database",
+    "src/captcha"
 ]
