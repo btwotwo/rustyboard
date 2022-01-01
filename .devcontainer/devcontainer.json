@@ -19,10 +19,11 @@
 
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
-		"bungcip.better-toml",
 		"vadimcn.vscode-lldb",
 		"mutantdino.resourcemonitor",
-		"matklad.rust-analyzer"
+		"matklad.rust-analyzer",
+		"tamasfe.even-better-toml",
+		"serayuzgur.crates"
 	],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
