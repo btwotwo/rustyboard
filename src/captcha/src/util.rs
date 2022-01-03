@@ -1,11 +1,11 @@
-use std::fmt::Write;
-pub fn byte_array_to_string(input: &[u8]) -> String {
+use std::fmt::{Error, Write};
+pub fn byte_array_to_string(input: &[u8]) -> Result<String, Error> {
     let mut result = String::with_capacity(input.len() * 2);
     for byte in input {
-        write!(result, "{:02x}", byte).unwrap();
+        write!(result, "{:02x}", byte)?;
     }
 
-    result
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -17,6 +17,6 @@ mod tests {
         let expected_result = "06fdfeff";
         let input = vec![6, 253, 254, 255];
 
-        assert_eq!(byte_array_to_string(&input), expected_result)
+        assert_eq!(byte_array_to_string(&input).unwrap(), expected_result)
     }
 }
