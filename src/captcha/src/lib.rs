@@ -3,10 +3,8 @@ mod util;
 use std::num::ParseIntError;
 
 use ed25519::{signature::Result as SigResult, signature::Verifier, Error, Signature};
-use ed25519_dalek::{
-    ExpandedSecretKey, PublicKey, EXPANDED_SECRET_KEY_LENGTH, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
-};
-use image::{RgbImage, Rgb};
+use ed25519_dalek::{ExpandedSecretKey, PublicKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+use image::{Rgb, RgbImage};
 use sha2::{Digest, Sha512};
 use util::{byte_array_to_hex_string, hex_string_to_byte_array};
 pub struct InvalidSignature;
@@ -116,9 +114,9 @@ impl Captcha {
         let signature = secret_key.sign(&test_message, &self.public_key);
         self.public_key
             .verify(&test_message, &signature)
-            .or_else(|op| {
+            .map_err(|op| {
                 println!("Error verifying decrypted secret: {:?}", op);
-                Err(op)
+                op
             })
     }
 
